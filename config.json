@@ -1,6 +1,6 @@
 {
   "app": "control-access",
-  "instanceKey": "CUI_001",
+  "instanceId": "TEST-001",
   "screenId": "SCR_001",
   "gatewayBaseUrl": "https://control-acceso-gateway.shindarked.workers.dev",
   "pollIntervalMs": 5000,
