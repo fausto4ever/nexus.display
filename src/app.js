@@ -2,11 +2,25 @@ import { loadConfig } from './core/config.js';
 import { GatewayClient } from './core/gateway-client.js';
 import { registerRenderer, getRenderer } from './core/renderer-registry.js';
 import { renderControlAccess } from './renderers/control-access.js';
+import { APP_VERSION } from './version.js';
 
 registerRenderer('control-access', renderControlAccess);
 registerRenderer('default', renderControlAccess);
 
 const root = document.querySelector('#app');
+
+function installVersionBadge() {
+  let badge = document.querySelector('#app-version');
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.id = 'app-version';
+    badge.className = 'version-badge';
+    document.body.appendChild(badge);
+  }
+  badge.textContent = `Nexus Display v${APP_VERSION}`;
+}
+
+installVersionBadge();
 
 const demoState = cfg => ({
   online: false,
@@ -32,7 +46,6 @@ async function start() {
 
   async function refresh() {
     try {
-      // Screen-specific routes are the preferred safe projection. They may not exist yet.
       let remoteConfig = null;
       let state = null;
       try { remoteConfig = await client.getScreenConfig(effectiveConfig.screenId); } catch (_) {}
@@ -41,7 +54,7 @@ async function start() {
 
       if (!state) {
         const attendance = await client.getAttendanceState();
-        state = { counters: attendance.counters || attendance, pickupRequests: [] , revision: attendance.revision };
+        state = { counters: attendance.counters || attendance, pickupRequests: [], revision: attendance.revision };
       }
 
       lastModel = {
