@@ -1,0 +1,12 @@
+{
+  "app": "control-access",
+  "screenId": "SCR-001",
+  "gatewayBaseUrl": "https://control-acceso-gateway.example.workers.dev",
+  "pollIntervalMs": 5000,
+  "mode": "DELIVERIES",
+  "locationId": "LOC-PUERTA",
+  "showOfficialInsideCount": true,
+  "showDistance": true,
+  "showPriority": true,
+  "demo": false
+}
