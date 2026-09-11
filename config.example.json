@@ -1,6 +1,7 @@
 {
   "app": "control-access",
-  "screenId": "SCR-001",
+  "instanceKey": "CUI_001",
+  "screenId": "SCR_001",
   "gatewayBaseUrl": "https://control-acceso-gateway.example.workers.dev",
   "pollIntervalMs": 5000,
   "mode": "DELIVERIES",
