@@ -1,0 +1,108 @@
+import { rm, mkdir, readFile, writeFile, readdir, access } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import JavaScriptObfuscator from 'javascript-obfuscator';
+import CleanCSS from 'clean-css';
+import { minify as minifyHtml } from 'html-minifier-terser';
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const dist = path.join(root, 'dist');
+
+const rootRuntimeFiles = ['index.html', 'styles.css', 'config.json', '_headers'];
+
+async function exists(relativePath) {
+  try { await access(path.join(root, relativePath)); return true; } catch { return false; }
+}
+
+async function walk(dir) {
+  const entries = await readdir(dir, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const absolute = path.join(dir, entry.name);
+    if (entry.isDirectory()) files.push(...await walk(absolute));
+    else files.push(absolute);
+  }
+  return files;
+}
+
+function obfuscateJavaScript(source) {
+  return JavaScriptObfuscator.obfuscate(source, {
+    compact: true,
+    controlFlowFlattening: false,
+    deadCodeInjection: false,
+    debugProtection: false,
+    disableConsoleOutput: false,
+    identifierNamesGenerator: 'hexadecimal',
+    renameGlobals: false,
+    selfDefending: false,
+    simplify: true,
+    splitStrings: false,
+    stringArray: true,
+    stringArrayEncoding: ['base64'],
+    stringArrayThreshold: 0.7,
+    transformObjectKeys: false,
+    unicodeEscapeSequence: false
+  }).getObfuscatedCode();
+}
+
+async function transformFile(srcPath, outPath) {
+  const source = await readFile(srcPath, 'utf8');
+  await mkdir(path.dirname(outPath), { recursive: true });
+
+  if (srcPath.endsWith('.js')) {
+    await writeFile(outPath, obfuscateJavaScript(source), 'utf8');
+    return;
+  }
+  if (srcPath.endsWith('.css')) {
+    const result = new CleanCSS({ level: 2 }).minify(source);
+    if (result.errors.length) throw new Error(`CSS inválido: ${result.errors.join('; ')}`);
+    await writeFile(outPath, result.styles, 'utf8');
+    return;
+  }
+  if (srcPath.endsWith('.html')) {
+    const result = await minifyHtml(source, {
+      collapseWhitespace: true,
+      conservativeCollapse: true,
+      removeComments: true,
+      removeRedundantAttributes: true,
+      removeEmptyAttributes: false,
+      minifyCSS: false,
+      minifyJS: false
+    });
+    await writeFile(outPath, result, 'utf8');
+    return;
+  }
+  await writeFile(outPath, source, 'utf8');
+}
+
+async function main() {
+  await rm(dist, { recursive: true, force: true });
+  await mkdir(dist, { recursive: true });
+
+  for (const relativePath of rootRuntimeFiles) {
+    if (!(await exists(relativePath))) continue;
+    await transformFile(path.join(root, relativePath), path.join(dist, relativePath));
+  }
+
+  const srcRoot = path.join(root, 'src');
+  for (const srcPath of await walk(srcRoot)) {
+    const relative = path.relative(root, srcPath);
+    await transformFile(srcPath, path.join(dist, relative));
+  }
+
+  const versionSource = await readFile(path.join(root, 'src/version.js'), 'utf8');
+  const version = versionSource.match(/APP_VERSION\s*=\s*['\"]([^'\"]+)['\"]/)?.[1] || 'unknown';
+  await writeFile(
+    path.join(dist, 'build-info.json'),
+    JSON.stringify({ product: 'Nexus Display', version, build: 'production-obfuscated', sourceMaps: false }, null, 2) + '\n',
+    'utf8'
+  );
+
+  console.log(`Nexus Display ${version}: build de producción generado en dist/`);
+  console.log('JS ofuscado, HTML/CSS minificados y source maps no generados.');
+}
+
+main().catch(error => {
+  console.error(error instanceof Error ? error.message : error);
+  process.exit(1);
+});
