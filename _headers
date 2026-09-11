@@ -1,0 +1,14 @@
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Cross-Origin-Opener-Policy: same-origin
+
+/*.html
+  Cache-Control: no-cache
+
+/config.json
+  Cache-Control: no-store
+
+/build-info.json
+  Cache-Control: no-store
