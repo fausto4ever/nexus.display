@@ -34,6 +34,6 @@ export function renderControlAccess(root, model) {
     </header>
     <div class="list-heading"><strong>${heading}</strong><span>${requests.length ? `${requests.length} en lista` : ''}</span></div>
     <section class="queue primary-queue">${queue || '<div class="empty">Sin elementos para mostrar.</div>'}</section>
-    <footer class="margin-note"><span>Nexus Display v${esc(APP_VERSION)}</span><span>${esc(cfg.screenId || 'default')} · Rev. ${esc(model.revision ?? '—')} · ${esc(model.updatedAt || '')}</span></footer>
+    <footer class="margin-note"><span class="brand-inline" aria-label="Nexus.Display"><span class="brand-nexus">Nexus</span><span class="brand-dot">.</span><span class="brand-display">Display</span> v${esc(APP_VERSION)}</span><span>${esc(cfg.screenId || 'default')} · Rev. ${esc(model.revision ?? '—')} · ${esc(model.updatedAt || '')}</span></footer>
   </section>${edgeMenu}`;
 }
