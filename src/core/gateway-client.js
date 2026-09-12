@@ -84,6 +84,14 @@ export class GatewayClient {
     });
   }
 
+  getBootstrap() {
+    return this.getJson('/bootstrap', { auth: false });
+  }
+
+  getGatewayVersion() {
+    return this.getJson('/api/gateway/version', { auth: false });
+  }
+
   getAttendanceState() {
     return this.getJson('/api/attendance/state', { auth: false });
   }
