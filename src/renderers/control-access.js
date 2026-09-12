@@ -16,9 +16,8 @@ export function renderControlAccess(root, model) {
   }).join('');
 
   const edgeMenu = cfg.showTestControls === false ? '' : `<aside class="edge-menu" aria-label="Vistas de prueba">
-    <button type="button" class="edge-tab" data-edge-menu-toggle aria-label="Abrir selector de vista">Vista</button>
+    <button type="button" class="edge-tab" data-edge-menu-toggle aria-label="Abrir selector de vista"><span></span></button>
     <div class="edge-drawer">
-      <div class="edge-drawer-title">Mostrar</div>
       ${[['ENTRY','Entradas'],['EXIT','Salidas'],['DELIVERIES','Solicitudes de entrega']].map(([value,label])=>`<button type="button" data-display-mode="${value}" class="edge-mode-button${mode===value?' active':''}">${label}</button>`).join('')}
     </div>
   </aside>`;
