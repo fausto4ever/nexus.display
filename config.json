@@ -9,5 +9,6 @@
   "showOfficialInsideCount": true,
   "showDistance": true,
   "showPriority": true,
+  "showTestControls": true,
   "demo": false
 }
