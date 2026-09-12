@@ -66,7 +66,7 @@ function renderEnrollment(enrollment, message = '') {
   const code = String(enrollment?.code || '------');
   root.innerHTML = `<section class="enrollment-screen">
     <div class="enrollment-card">
-      <div class="enrollment-brand">Nexus Display</div>
+      <div class="enrollment-brand brand-wordmark" aria-label="Nexus.Display"><span class="brand-nexus">Nexus</span><span class="brand-dot">.</span><span class="brand-display">Display</span></div>
       <h1 class="enrollment-title">Vincular esta pantalla</h1>
       <p class="enrollment-copy">Autoriza esta pantalla desde el administrador usando el siguiente código.</p>
       <div class="enrollment-code">${code}</div>
@@ -77,7 +77,7 @@ function renderEnrollment(enrollment, message = '') {
 }
 
 async function enrollDisplay(client, localConfig) {
-  const enrollment = await client.requestEnrollment(localConfig.screenName || localConfig.screenId || 'Nexus Display');
+  const enrollment = await client.requestEnrollment(localConfig.screenName || localConfig.screenId || 'Nexus.Display');
   hideSplash();
   renderEnrollment(enrollment);
 
@@ -167,5 +167,5 @@ async function start() {
 
 start().catch(error => {
   hideSplash();
-  root.textContent = `No se pudo iniciar Nexus Display: ${String(error?.message || error)}`;
+  root.textContent = `No se pudo iniciar Nexus.Display: ${String(error?.message || error)}`;
 });
