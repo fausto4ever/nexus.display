@@ -1,12 +1,20 @@
 export class GatewayClient {
-  constructor(baseUrl) {
+  constructor(baseUrl, screenToken = '') {
     this.baseUrl = String(baseUrl || '').replace(/\/$/, '');
+    this.screenToken = String(screenToken || '');
   }
 
-  async getJson(path) {
+  setScreenToken(token) {
+    this.screenToken = String(token || '');
+  }
+
+  async request(path, options = {}) {
     if (!this.baseUrl) throw new Error('Gateway no configurado');
+    const headers = { Accept: 'application/json', ...(options.headers || {}) };
+    if (options.auth !== false && this.screenToken) headers.Authorization = `Bearer ${this.screenToken}`;
     const res = await fetch(`${this.baseUrl}${path}`, {
-      headers: { Accept: 'application/json' },
+      ...options,
+      headers,
       cache: 'no-store'
     });
     const data = await res.json().catch(() => ({}));
@@ -19,25 +27,49 @@ export class GatewayClient {
     return data;
   }
 
+  getJson(path, options = {}) {
+    return this.request(path, { ...options, method: 'GET' });
+  }
+
+  postJson(path, body = {}, options = {}) {
+    return this.request(path, {
+      ...options,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+      body: JSON.stringify(body)
+    });
+  }
+
+  putJson(path, body = {}, options = {}) {
+    return this.request(path, {
+      ...options,
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+      body: JSON.stringify(body)
+    });
+  }
+
   getAttendanceState() {
-    return this.getJson('/api/attendance/state');
+    return this.getJson('/api/attendance/state', { auth: false });
   }
 
-  getScreenConfig(screenId) {
-    const id = encodeURIComponent(screenId || '');
-    return this.getJson(`/api/display/config?screenId=${id}`);
+  requestEnrollment(clientLabel = '') {
+    return this.postJson('/api/display/enroll', { clientLabel }, { auth: false });
   }
 
-  getScreenState(screenId) {
-    const id = encodeURIComponent(screenId || '');
-    return this.getJson(`/api/display/state?screenId=${id}`);
+  getEnrollment(enrollmentId) {
+    return this.getJson(`/api/display/enroll/${encodeURIComponent(enrollmentId)}`, { auth: false });
   }
 
-  getDisplayState(filters = {}) {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(filters)) {
-      if (value !== undefined && value !== null && value !== '') params.set(key, String(value));
-    }
-    return this.getJson(`/api/display/state${params.toString() ? `?${params}` : ''}`);
+  getDisplayConfig(screenId) {
+    return this.getJson(`/api/display/config?screenId=${encodeURIComponent(screenId)}`);
+  }
+
+  saveDisplayConfig(screenId, config) {
+    return this.putJson('/api/display/config', { screenId, ...config });
+  }
+
+  getDisplayState(screenId) {
+    return this.getJson(`/api/display/state?screenId=${encodeURIComponent(screenId)}`);
   }
 }
