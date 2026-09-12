@@ -1,14 +1,14 @@
-# Nexus Display
+# Nexus.Display
 
-Nexus Display es un cliente web de visualización configurable. No pertenece a un solo dominio de negocio: recibe configuración y estado desde un Gateway y selecciona un renderizador según `app`.
+Nexus.Display es un cliente web de visualización configurable. No pertenece a un solo dominio de negocio: recibe configuración y estado desde un Gateway y selecciona un renderizador según `app`.
 
-**Versión actual:** `0.1.7`
+**Versión actual:** `0.1.8`
 
 ## Principios
 
 - Un solo cliente de visualización para distintos productos o instalaciones.
 - El Gateway conserva las reglas de negocio y entrega una proyección segura para pantalla.
-- Nexus Display renderiza; no decide estados operativos ni calcula contadores oficiales.
+- Nexus.Display renderiza; no decide estados operativos ni calcula contadores oficiales.
 - Configuración por pantalla mediante `screenId`.
 - Identidad lógica de instalación mediante `instanceId`.
 - La selección de vista puede combinar `app`, `mode` y `locationId`.
@@ -27,13 +27,13 @@ El primer renderizador es `control-access`, con modos previstos:
 - `DELIVERIES`
 - `MIXED`
 
-Para Control de Acceso, el contador oficial debe venir del Gateway. Las solicitudes de entrega se muestran como estado activo; Nexus Display no debe consumir datos privados de Tutor que no sean necesarios para la visualización.
+Para Control de Acceso, el contador oficial debe venir del Gateway. Las solicitudes de entrega se muestran como estado activo; Nexus.Display no debe consumir datos privados de Tutor que no sean necesarios para la visualización.
 
 ## Identidad de instalación
 
-Nexus Display no se enlaza directamente con la aplicación Access. Ambos clientes deben converger en la misma instancia del Gateway.
+Nexus.Display no se enlaza directamente con la aplicación Access. Ambos clientes deben converger en la misma instancia del Gateway.
 
-`instanceId` identifica la instalación lógica. `screenId` identifica una pantalla concreta. El `backend_ref` del Gateway no debe utilizarse como identidad de Nexus Display porque pertenece al adaptador de persistencia y puede cambiar sin cambiar la instalación.
+`instanceId` identifica la instalación lógica. `screenId` identifica una pantalla concreta. El `backend_ref` del Gateway no debe utilizarse como identidad de Nexus.Display porque pertenece al adaptador de persistencia y puede cambiar sin cambiar la instalación.
 
 Actualmente el Gateway resuelve la instancia por hostname. La pantalla obtiene su `screenId` y credencial mediante el flujo de enrolamiento seguro del Gateway.
 
@@ -48,7 +48,7 @@ La identidad autenticada de pantalla se conserva localmente después del enrolam
 El número visible se define en `src/version.js`. Para publicaciones normales se incrementa de forma simple en el último componente:
 
 ```text
-0.1.6 -> 0.1.7 -> 0.1.8
+0.1.7 -> 0.1.8 -> 0.1.9
 ```
 
 Cambios mayores de arquitectura pueden incrementar `0.2.0`, `0.3.0`, etc.
@@ -99,4 +99,4 @@ src/
 
 ## Estado actual
 
-Incluye enrolamiento seguro de pantalla, configuración remota, conexión al Gateway, polling, registro de renderizadores, modo demo, interfaz responsiva y pipeline de producción ofuscado. Nexus Display mantiene separadas la lógica de aplicación en JavaScript y la presentación en CSS.
+Incluye enrolamiento seguro de pantalla, configuración remota, conexión al Gateway, polling, registro de renderizadores, modo demo, interfaz responsiva y pipeline de producción ofuscado. Nexus.Display mantiene separadas la lógica de aplicación en JavaScript y la presentación en CSS.
