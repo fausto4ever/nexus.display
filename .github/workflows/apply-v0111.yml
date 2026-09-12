@@ -1,0 +1,82 @@
+name: Apply Nexus.Display 0.1.11
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/apply-v0111.yml']
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Apply 0.1.11 presentation styles and version
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('styles.css')
+          s=p.read_text()
+          marker='/* v0.1.11 vertical pickup lanes */'
+          if marker not in s:
+              s += r'''
+
+/* v0.1.11 vertical pickup lanes */
+.nexus-topbar{align-items:center;padding-bottom:10px}
+.screen-caption{display:flex;align-items:center;gap:9px;margin-top:4px}
+.location-caption{color:var(--text);font-size:clamp(.72rem,1vw,.9rem);font-weight:650;opacity:.9}
+.screen-id-caption{color:var(--muted);font-size:.58rem;opacity:.5}
+.display-status-area{align-items:center}
+.clock-block{min-width:105px;text-align:right;font-variant-numeric:tabular-nums}
+.clock-block strong{display:block;font-size:clamp(1.45rem,2.5vw,2.35rem);line-height:1;font-weight:780;letter-spacing:-.035em}
+.clock-block span{display:block;margin-top:4px;color:var(--muted);font-size:.58rem;text-transform:capitalize}
+.connection-state{min-width:62px;display:grid;justify-items:center;gap:5px;color:var(--muted)}
+.connection-state small{font-size:.55rem}
+.delivery-lanes{min-height:0;flex:1 1 auto;display:grid;grid-template-rows:minmax(0,1.5fr) minmax(0,1fr) minmax(0,.8fr);gap:8px;padding-top:9px;overflow:hidden}
+.queue-lane{min-height:0;display:flex;flex-direction:column;border:1px solid rgba(159,176,207,.12);border-radius:13px;background:rgba(18,26,46,.36);overflow:hidden}
+.lane-heading{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 12px;border-bottom:1px solid rgba(159,176,207,.1)}
+.lane-heading>div{min-width:0;display:flex;align-items:baseline;gap:10px}
+.lane-heading strong{font-size:clamp(.8rem,1.2vw,1.05rem);letter-spacing:.035em}
+.lane-heading span{color:var(--muted);font-size:clamp(.56rem,.8vw,.7rem)}
+.lane-heading b{min-width:28px;text-align:center;font-size:1rem}
+.queue-lane-now{border-color:rgba(255,107,120,.28);background:rgba(60,20,33,.26)}
+.queue-lane-now .lane-heading{background:rgba(112,29,43,.23)}
+.queue-lane-ready{border-color:rgba(255,189,90,.2);background:rgba(67,49,18,.2)}
+.queue-lane-ready .lane-heading{background:rgba(116,80,17,.16)}
+.queue-lane-waiting{opacity:.88}
+.lane-items{min-height:0;flex:1 1 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));align-content:start;gap:6px;padding:7px;overflow:auto;scrollbar-width:thin}
+.queue-card{min-width:0;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:9px 11px;border:1px solid rgba(159,176,207,.11);border-radius:10px;background:rgba(11,16,32,.55);transition:border-color .2s,background .2s,box-shadow .2s,transform .2s}
+.queue-position{width:30px;height:30px;display:grid;place-items:center;border-radius:8px;background:#1d2b4b;font-size:.72rem;font-weight:800}
+.queue-person{min-width:0}.queue-person h3{margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:clamp(.95rem,1.55vw,1.35rem);line-height:1.08}.queue-person p{margin:3px 0 0;color:var(--muted);font-size:clamp(.58rem,.78vw,.72rem);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.queue-age{font-size:clamp(.72rem,1vw,.9rem);font-weight:750;font-variant-numeric:tabular-nums;color:#ffdfe4}
+.queue-card.lane-now{border-color:rgba(255,107,120,.26)}
+.queue-card.lane-ready .queue-position{background:#554116;color:#ffe8a6}
+.queue-card.attention-1{border-color:rgba(255,107,120,.48);background:rgba(75,26,39,.58)}
+.queue-card.attention-2{border-color:rgba(255,107,120,.7);background:rgba(101,27,43,.65);box-shadow:0 0 0 2px rgba(255,107,120,.08)}
+.queue-card.attention-3{border-color:rgba(255,107,120,.95);background:rgba(125,27,45,.78);box-shadow:0 0 18px rgba(255,85,105,.18);transform:scale(1.01);animation:nowAttention 1.8s ease-in-out infinite}
+@keyframes nowAttention{50%{box-shadow:0 0 30px rgba(255,85,105,.3)}}
+.lane-empty{height:100%;min-height:38px;display:grid;place-items:center;color:var(--muted);font-size:.66rem;opacity:.6}
+.display-footer{flex:0 0 auto;padding-top:8px}.tip-strip{padding:7px 10px;border:1px solid rgba(159,176,207,.1);border-radius:9px;background:rgba(18,26,46,.45);color:#d7e1f3;text-align:center;font-size:clamp(.62rem,.9vw,.78rem)}
+@media(max-width:720px){.delivery-lanes{grid-template-rows:minmax(0,1.45fr) minmax(0,1fr) minmax(0,.85fr)}.lane-items{grid-template-columns:1fr}.lane-heading span{display:none}.clock-block{min-width:82px}.connection-state small{display:none}.screen-id-caption{display:none}}
+@media(max-height:650px){.delivery-lanes{gap:5px;padding-top:5px}.lane-heading{padding:5px 9px}.lane-items{padding:5px;gap:4px}.queue-card{padding:6px 8px}.tip-strip{padding:5px 8px}.display-footer{padding-top:5px}}
+'''
+              p.write_text(s)
+          Path('src/version.js').write_text("export const APP_VERSION = '0.1.11';\n")
+          import json
+          pkg=json.loads(Path('package.json').read_text())
+          pkg['version']='0.1.11'
+          Path('package.json').write_text(json.dumps(pkg,indent=2,ensure_ascii=False)+'\n')
+          PY
+          npm ci
+          npm run build
+      - name: Commit changes
+        shell: bash
+        run: |
+          git config user.name cuitlahuac-bot
+          git config user.email cuitlahuac-bot@users.noreply.github.com
+          git add styles.css src/version.js package.json package-lock.json dist || true
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "feat: Nexus.Display 0.1.11 queue board presentation"
+          git push
