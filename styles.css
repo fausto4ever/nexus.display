@@ -336,12 +336,43 @@ textarea { font: inherit; }
   overflow-wrap: anywhere;
 }
 
+.enrollment-code.expired { opacity: .46; }
+
 .enrollment-expiry {
   color: rgba(255, 255, 255, .58);
   font-size: clamp(.9rem, 3vw, 1rem);
 }
 
-.enrollment-message { color: #ffd166; }
+.enrollment-message {
+  min-height: 1.45em;
+  color: #ffd166;
+  font-weight: 650;
+}
+
+.enrollment-message.offline { color: #ffbd5a; }
+.enrollment-message.expired { color: #ffd166; }
+
+.enrollment-action {
+  width: min(100%, 360px);
+  min-height: 56px;
+  margin: 0 auto;
+  padding: 14px 22px;
+  border: 1px solid rgba(21, 151, 229, .6);
+  border-radius: 14px;
+  background: #16569a;
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform .12s ease, background .12s ease, box-shadow .12s ease;
+}
+
+.enrollment-action:hover { background: #1b69b9; }
+.enrollment-action:active { transform: scale(.98); }
+.enrollment-action:focus-visible {
+  outline: 4px solid #24c98a;
+  outline-offset: 4px;
+  box-shadow: 0 0 0 8px rgba(36, 201, 138, .16);
+}
 
 .edge-menu {
   position: fixed;
@@ -450,6 +481,7 @@ textarea { font: inherit; }
   .margin-note { justify-content: flex-start; }
   .enrollment-screen { padding: 18px; }
   .enrollment-card { gap: 16px; }
+  .enrollment-action { min-height: 60px; }
 }
 
 @media (max-height: 620px) {
