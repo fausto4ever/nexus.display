@@ -2,25 +2,12 @@ import { loadConfig } from './core/config.js';
 import { GatewayClient } from './core/gateway-client.js';
 import { registerRenderer, getRenderer } from './core/renderer-registry.js';
 import { renderControlAccess } from './renderers/control-access.js';
-import { APP_VERSION } from './version.js';
 
 registerRenderer('control-access', renderControlAccess);
 registerRenderer('default', renderControlAccess);
 
 const root = document.querySelector('#app');
-
-function installVersionBadge() {
-  let badge = document.querySelector('#app-version');
-  if (!badge) {
-    badge = document.createElement('div');
-    badge.id = 'app-version';
-    badge.className = 'version-badge';
-    document.body.appendChild(badge);
-  }
-  badge.textContent = `Nexus Display v${APP_VERSION}`;
-}
-
-installVersionBadge();
+const splash = document.querySelector('#startup-splash');
 
 const demoState = cfg => ({
   online: false,
@@ -34,14 +21,31 @@ const demoState = cfg => ({
   ]
 });
 
+function hideSplash() {
+  if (!splash || splash.classList.contains('hide')) return;
+  requestAnimationFrame(() => splash.classList.add('hide'));
+  setTimeout(() => splash.remove(), 650);
+}
+
 async function start() {
   const localConfig = await loadConfig();
   const client = new GatewayClient(localConfig.gatewayBaseUrl);
   let effectiveConfig = { ...localConfig };
+  let testModeOverride = null;
   let lastModel = localConfig.demo ? demoState(effectiveConfig) : { online:false, config:effectiveConfig, counters:{}, pickupRequests:[] };
-  const renderer = getRenderer(effectiveConfig.app);
 
-  const paint = model => renderer(root, model);
+  const paint = model => {
+    const config = testModeOverride ? { ...model.config, mode:testModeOverride } : model.config;
+    getRenderer(config?.app || effectiveConfig.app)(root, { ...model, config });
+  };
+
+  root.addEventListener('click', event => {
+    const button = event.target.closest('[data-display-mode]');
+    if (!button) return;
+    testModeOverride = button.dataset.displayMode;
+    paint(lastModel);
+  });
+
   paint(lastModel);
 
   async function refresh() {
@@ -71,12 +75,15 @@ async function start() {
     paint(lastModel);
   }
 
+  if (effectiveConfig.gatewayBaseUrl) await refresh();
+  hideSplash();
+
   if (effectiveConfig.gatewayBaseUrl) {
-    await refresh();
     setInterval(refresh, Math.max(1000, Number(effectiveConfig.pollIntervalMs) || 5000));
   }
 }
 
 start().catch(error => {
-  root.innerHTML = `<section class="boot-card"><div class="brand-mark">N</div><h1>Nexus Display</h1><p>No se pudo iniciar: ${String(error?.message || error)}</p></section>`;
+  hideSplash();
+  root.textContent = `No se pudo iniciar Nexus Display: ${String(error?.message || error)}`;
 });
