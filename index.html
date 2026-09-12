@@ -8,13 +8,10 @@
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
-  <main id="app" class="app-shell" aria-live="polite">
-    <section class="boot-card">
-      <div class="brand-mark">N</div>
-      <h1>Nexus Display</h1>
-      <p id="boot-status">Inicializando pantalla…</p>
-    </section>
-  </main>
+  <div id="startup-splash" class="startup-splash" aria-label="Nexus Display iniciando">
+    <img src="./assets/nexus-display-logo.png" alt="Nexus Display" class="startup-logo">
+  </div>
+  <main id="app" class="app-shell" aria-live="polite"></main>
   <script type="module" src="./src/app.js"></script>
 </body>
 </html>
