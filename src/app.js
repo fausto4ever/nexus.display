@@ -40,11 +40,31 @@ async function start() {
   };
 
   root.addEventListener('click', event => {
+    const toggle = event.target.closest('[data-edge-menu-toggle]');
+    if (toggle) {
+      const menu = root.querySelector('.edge-menu');
+      menu?.classList.toggle('open');
+      return;
+    }
+
     const button = event.target.closest('[data-display-mode]');
     if (!button) return;
     testModeOverride = button.dataset.displayMode;
     paint(lastModel);
   });
+
+  root.addEventListener('wheel', event => {
+    const menu = event.target.closest?.('.edge-menu');
+    if (!menu) return;
+    menu.classList.add('open');
+    clearTimeout(menu._closeTimer);
+    menu._closeTimer = setTimeout(() => menu.classList.remove('open'), 1600);
+  }, { passive:true });
+
+  root.addEventListener('pointerleave', event => {
+    const menu = event.target.closest?.('.edge-menu');
+    if (menu && !menu.matches(':focus-within')) menu.classList.remove('open');
+  }, true);
 
   paint(lastModel);
 

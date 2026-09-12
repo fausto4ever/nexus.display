@@ -15,9 +15,15 @@ export function renderControlAccess(root, model) {
     return `<article class="queue-item${urgent?' urgent':''}"><div class="badge">${i+1}</div><div><h3>${esc(r.studentName || r.studentId || 'Solicitud')}</h3><p>${esc(r.status || 'REQUESTED')}${r.vehicle?.description?` · ${esc(r.vehicle.description)}`:''}</p></div><div class="queue-right">${right}</div></article>`;
   }).join('');
 
-  const modeSelector = cfg.showTestControls === false ? '' : `<nav class="mode-selector" aria-label="Vista de prueba">
-    ${[['ENTRY','Entradas'],['EXIT','Salidas'],['DELIVERIES','Entregas'],['MIXED','Mixto']].map(([value,label])=>`<button type="button" data-display-mode="${value}" class="mode-button${mode===value?' active':''}">${label}</button>`).join('')}
-  </nav>`;
+  const edgeMenu = cfg.showTestControls === false ? '' : `<aside class="edge-menu" aria-label="Vistas de prueba">
+    <button type="button" class="edge-tab" data-edge-menu-toggle aria-label="Abrir selector de vista">Vista</button>
+    <div class="edge-drawer">
+      <div class="edge-drawer-title">Mostrar</div>
+      ${[['ENTRY','Entradas'],['EXIT','Salidas'],['DELIVERIES','Solicitudes de entrega']].map(([value,label])=>`<button type="button" data-display-mode="${value}" class="edge-mode-button${mode===value?' active':''}">${label}</button>`).join('')}
+    </div>
+  </aside>`;
+
+  const heading = mode==='DELIVERIES' ? 'Solicitudes activas' : mode==='ENTRY' ? 'Entradas recientes' : mode==='EXIT' ? 'Salidas recientes' : 'Actividad reciente';
 
   root.innerHTML = `<section class="display-card minimal-display">
     <header class="topbar">
@@ -27,9 +33,8 @@ export function renderControlAccess(root, model) {
         <div class="connection-dot ${model.online?'online':'offline'}" title="${model.online?'Conectado':'Sin conexión'}"></div>
       </div>
     </header>
-    ${modeSelector}
-    <div class="list-heading"><strong>${mode==='DELIVERIES'?'Solicitudes activas':'Actividad reciente'}</strong><span>${requests.length ? `${requests.length} en lista` : ''}</span></div>
+    <div class="list-heading"><strong>${heading}</strong><span>${requests.length ? `${requests.length} en lista` : ''}</span></div>
     <section class="queue primary-queue">${queue || '<div class="empty">Sin elementos para mostrar.</div>'}</section>
     <footer class="margin-note"><span>Nexus Display v${esc(APP_VERSION)}</span><span>${esc(cfg.screenId || 'default')} · Rev. ${esc(model.revision ?? '—')} · ${esc(model.updatedAt || '')}</span></footer>
-  </section>`;
+  </section>${edgeMenu}`;
 }
