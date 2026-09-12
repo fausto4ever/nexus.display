@@ -27,6 +27,22 @@ function hideSplash() {
   setTimeout(() => splash.remove(), 650);
 }
 
+function normalizeRemoteConfig(config) {
+  if (!config || typeof config !== 'object') return {};
+  return {
+    ...config,
+    mode: config.view || config.mode
+  };
+}
+
+function normalizeDisplayItems(items) {
+  if (!Array.isArray(items)) return [];
+  return items.map(item => ({
+    ...item,
+    studentName: item.studentName || item.displayName || null
+  }));
+}
+
 async function start() {
   const localConfig = await loadConfig();
   const client = new GatewayClient(localConfig.gatewayBaseUrl);
@@ -73,19 +89,25 @@ async function start() {
       let remoteConfig = null;
       let state = null;
       try { remoteConfig = await client.getScreenConfig(effectiveConfig.screenId); } catch (_) {}
-      if (remoteConfig) effectiveConfig = { ...effectiveConfig, ...(remoteConfig.config || remoteConfig.screen || remoteConfig) };
+      if (remoteConfig) {
+        effectiveConfig = { ...effectiveConfig, ...normalizeRemoteConfig(remoteConfig.config || remoteConfig.screen || remoteConfig) };
+      }
       try { state = await client.getScreenState(effectiveConfig.screenId); } catch (_) {}
 
       if (!state) {
         const attendance = await client.getAttendanceState();
-        state = { counters: attendance.counters || attendance, pickupRequests: [], revision: attendance.revision };
+        state = { counters: attendance.counters || attendance, items: [], revision: attendance.revision };
+      }
+
+      if (state.config) {
+        effectiveConfig = { ...effectiveConfig, ...normalizeRemoteConfig(state.config) };
       }
 
       lastModel = {
         online: true,
         config: effectiveConfig,
         counters: state.counters || {},
-        pickupRequests: state.pickupRequests || [],
+        pickupRequests: normalizeDisplayItems(state.items || state.pickupRequests || []),
         revision: state.revision ?? 0,
         updatedAt: new Date().toLocaleTimeString()
       };
