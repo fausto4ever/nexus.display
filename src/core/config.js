@@ -9,6 +9,7 @@ const DEFAULTS = Object.freeze({
   showOfficialInsideCount: true,
   showDistance: true,
   showPriority: true,
+  showTestControls: true,
   demo: true
 });
 
@@ -19,6 +20,7 @@ function fromQuery() {
     if (q.has(key)) out[key] = q.get(key);
   }
   if (q.has('demo')) out.demo = q.get('demo') !== '0' && q.get('demo') !== 'false';
+  if (q.has('showTestControls')) out.showTestControls = q.get('showTestControls') !== '0' && q.get('showTestControls') !== 'false';
   return out;
 }
 
