@@ -24,10 +24,20 @@ export class GatewayClient {
   }
 
   getScreenConfig(screenId) {
-    return this.getJson(`/api/screens/${encodeURIComponent(screenId)}/config`);
+    const id = encodeURIComponent(screenId || '');
+    return this.getJson(`/api/display/config?screenId=${id}`);
   }
 
   getScreenState(screenId) {
-    return this.getJson(`/api/screens/${encodeURIComponent(screenId)}/state`);
+    const id = encodeURIComponent(screenId || '');
+    return this.getJson(`/api/display/state?screenId=${id}`);
+  }
+
+  getDisplayState(filters = {}) {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(filters)) {
+      if (value !== undefined && value !== null && value !== '') params.set(key, String(value));
+    }
+    return this.getJson(`/api/display/state${params.toString() ? `?${params}` : ''}`);
   }
 }
