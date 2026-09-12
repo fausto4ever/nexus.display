@@ -12,19 +12,54 @@ export class GatewayClient {
     if (!this.baseUrl) throw new Error('Gateway no configurado');
     const headers = { Accept: 'application/json', ...(options.headers || {}) };
     if (options.auth !== false && this.screenToken) headers.Authorization = `Bearer ${this.screenToken}`;
-    const res = await fetch(`${this.baseUrl}${path}`, {
-      ...options,
-      headers,
-      cache: 'no-store'
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || data?.ok === false) {
-      const error = new Error(data?.error || `HTTP ${res.status}`);
-      error.status = res.status;
-      error.data = data;
-      throw error;
+
+    const timeoutMs = Math.max(1000, Number(options.timeoutMs) || 10000);
+    const controller = new AbortController();
+    const externalSignal = options.signal;
+    let externalAbort;
+    if (externalSignal) {
+      if (externalSignal.aborted) controller.abort();
+      else {
+        externalAbort = () => controller.abort();
+        externalSignal.addEventListener('abort', externalAbort, { once: true });
+      }
     }
-    return data;
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const requestOptions = { ...options };
+      delete requestOptions.timeoutMs;
+      const res = await fetch(`${this.baseUrl}${path}`, {
+        ...requestOptions,
+        headers,
+        signal: controller.signal,
+        cache: 'no-store'
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.ok === false) {
+        const error = new Error(data?.error || `HTTP ${res.status}`);
+        error.status = res.status;
+        error.data = data;
+        error.code = data?.error || `HTTP_${res.status}`;
+        throw error;
+      }
+      return data;
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        const timeoutError = new Error('Tiempo de espera agotado');
+        timeoutError.code = 'REQUEST_TIMEOUT';
+        throw timeoutError;
+      }
+      if (error instanceof TypeError) {
+        const networkError = new Error('No se pudo conectar al Gateway');
+        networkError.code = 'NETWORK_ERROR';
+        throw networkError;
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+      if (externalSignal && externalAbort) externalSignal.removeEventListener('abort', externalAbort);
+    }
   }
 
   getJson(path, options = {}) {
