@@ -17,6 +17,16 @@ function laneFor(status){
   if(s==='ON_THE_WAY'||s==='READY')return 'READY';
   return 'WAITING';
 }
+function arrivalMode(item){
+  const mode=String(item.arrivalMode||item.travelMode||'UNKNOWN').toUpperCase();
+  return ['CAR','WALK','UNKNOWN'].includes(mode)?mode:'UNKNOWN';
+}
+function arrivalModeLabel(item){
+  const mode=arrivalMode(item);
+  if(mode==='CAR')return '🚗 En auto';
+  if(mode==='WALK')return '🚶 A pie';
+  return '';
+}
 function ageMinutes(item,lane){
   const raw=lane==='NOW'?(item.arrivalTriggeredAt||item.updatedAt||item.requestedAt):(item.updatedAt||item.requestedAt);
   const t=Date.parse(raw||'');
@@ -40,7 +50,9 @@ function filteredRequests(requests,cfg){
     return dimensionPass(item.locationId,f.locations)
       &&dimensionPass(item.levelId,f.levels)
       &&dimensionPass(item.gradeId,f.grades)
-      &&dimensionPass(item.groupId,f.groups);
+      &&dimensionPass(item.groupId,f.groups)
+      &&dimensionPass(item.requestType||'PICKUP',f.requestTypes)
+      &&dimensionPass(arrivalMode(item),f.arrivalModes);
   });
 }
 function academicLine(item){
@@ -51,7 +63,8 @@ function requestCard(item,index,lane,cfg){
   const age=ageMinutes(item,lane);
   const academic=academicLine(item);
   const distance=cfg.showDistance!==false&&Number.isFinite(Number(item.distanceMeters))?`${Math.round(Number(item.distanceMeters))} m`:'';
-  const meta=[academic,item.locationName||'',distance].filter(Boolean).join(' · ');
+  const travel=arrivalModeLabel(item);
+  const meta=[academic,item.locationName||'',travel,distance].filter(Boolean).join(' · ');
   return `<article class="queue-card lane-${lane.toLowerCase()}${attentionClass(item,lane,cfg)}">
     <div class="queue-position">${index+1}</div>
     <div class="queue-person"><h3>${esc(item.studentName||item.displayName||item.studentId||'Solicitud')}</h3>${meta?`<p>${esc(meta)}</p>`:''}</div>
