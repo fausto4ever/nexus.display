@@ -8,7 +8,7 @@ import { minify as minifyHtml } from 'html-minifier-terser';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dist = path.join(root, 'dist');
 
-const rootRuntimeFiles = ['index.html', 'styles.css', 'config.json', '_headers'];
+const rootRuntimeFiles = ['index.html', 'styles.css', 'config.json', '_headers', 'assets/nexus-display-logo.png'];
 
 async function exists(relativePath) {
   try { await access(path.join(root, relativePath)); return true; } catch { return false; }
@@ -46,6 +46,13 @@ function obfuscateJavaScript(source) {
 }
 
 async function transformFile(srcPath, outPath) {
+  if (srcPath.endsWith('.png')) {
+    const source = await readFile(srcPath);
+    await mkdir(path.dirname(outPath), { recursive: true });
+    await writeFile(outPath, source);
+    return;
+  }
+
   const source = await readFile(srcPath, 'utf8');
   await mkdir(path.dirname(outPath), { recursive: true });
 
