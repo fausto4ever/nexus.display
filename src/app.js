@@ -64,14 +64,14 @@ function clearIdentity() {
 
 function renderEnrollment(enrollment, message = '') {
   const code = String(enrollment?.code || '------');
-  root.innerHTML = `<section style="min-height:100vh;display:grid;place-items:center;padding:24px;background:#101114;color:#fff;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-    <div style="width:min(620px,92vw);text-align:center">
-      <div style="opacity:.7;font-size:14px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:18px">Nexus Display</div>
-      <h1 style="font-size:clamp(28px,5vw,48px);margin:0 0 12px">Vincular esta pantalla</h1>
-      <p style="opacity:.75;font-size:17px;line-height:1.5;margin:0 auto 28px">Autoriza esta pantalla desde el administrador usando el siguiente código.</p>
-      <div style="background:#fff;color:#111;border-radius:18px;padding:28px 18px;font-size:clamp(42px,10vw,82px);font-weight:800;letter-spacing:.14em;font-variant-numeric:tabular-nums">${code}</div>
-      <p style="opacity:.58;margin-top:18px">El código vence automáticamente en unos minutos.</p>
-      ${message ? `<p style="margin-top:18px;color:#ffd166">${message}</p>` : ''}
+  root.innerHTML = `<section class="enrollment-screen">
+    <div class="enrollment-card">
+      <div class="enrollment-brand">Nexus Display</div>
+      <h1 class="enrollment-title">Vincular esta pantalla</h1>
+      <p class="enrollment-copy">Autoriza esta pantalla desde el administrador usando el siguiente código.</p>
+      <div class="enrollment-code">${code}</div>
+      <p class="enrollment-expiry">El código vence automáticamente en unos minutos.</p>
+      ${message ? `<p class="enrollment-message">${message}</p>` : ''}
     </div>
   </section>`;
 }
@@ -125,19 +125,6 @@ async function start() {
     testModeOverride = button.dataset.displayMode;
     paint(lastModel);
   });
-
-  root.addEventListener('wheel', event => {
-    const menu = event.target.closest?.('.edge-menu');
-    if (!menu) return;
-    menu.classList.add('open');
-    clearTimeout(menu._closeTimer);
-    menu._closeTimer = setTimeout(() => menu.classList.remove('open'), 1600);
-  }, { passive:true });
-
-  root.addEventListener('pointerleave', event => {
-    const menu = event.target.closest?.('.edge-menu');
-    if (menu && !menu.matches(':focus-within')) menu.classList.remove('open');
-  }, true);
 
   paint(lastModel);
 
