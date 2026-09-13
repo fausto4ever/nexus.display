@@ -1,0 +1,11 @@
+{
+  "name": "Nexus.Display",
+  "short_name": "Nexus.Display",
+  "description": "Pantalla operativa de Control de Acceso",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "orientation": "any"
+}
