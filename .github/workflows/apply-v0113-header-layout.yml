@@ -1,0 +1,47 @@
+name: Apply Nexus.Display 0.1.13 header layout
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/apply-v0113-header-layout.py'
+      - '.github/workflows/apply-v0113-header-layout.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Apply patch
+        run: python .github/scripts/apply-v0113-header-layout.py
+      - name: Validate JavaScript
+        run: node --check src/renderers/control-access.js
+      - name: Validate diff
+        run: git diff --check
+      - name: Ensure no runtime style or script injection was added
+        run: |
+          ! grep -nE "createElement\(['\"]style['\"]\)|createElement\(['\"]script['\"]\)|insertAdjacentHTML\([^,]+,[^)]*<style|innerHTML[^;]*<style|innerHTML[^;]*<script" src/renderers/control-access.js
+      - name: Publish
+        run: |
+          git config user.name "nexus-display-bot"
+          git config user.email "nexus-display-bot@users.noreply.github.com"
+          git add src/renderers/control-access.js styles.css src/version.js
+          if git diff --cached --quiet; then
+            echo "No changes to publish"
+            exit 0
+          fi
+          git commit -m "feat: Nexus.Display 0.1.13 header status layout"
+          git push origin main
