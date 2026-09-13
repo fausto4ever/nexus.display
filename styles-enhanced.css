@@ -73,7 +73,8 @@
   border-radius:10px;
   background:#fff;
   box-shadow:0 1px 2px rgba(15,23,42,.03);
-  transition:border-color .2s,background-color .2s,transform .25s,box-shadow .25s;
+  transition:border-color .2s,background-color .2s,transform .25s,box-shadow .25s,opacity .25s;
+  will-change:transform;
 }
 
 .queue-person h3{
@@ -100,6 +101,79 @@
 .queue-card.attention-3{
   background:#991b1b;
   border-color:#7f1d1d;
+}
+
+.queue-card.state-enter{
+  animation:cardEnter .6s cubic-bezier(.2,.8,.2,1);
+}
+
+.queue-card.state-flash-now{
+  animation:flashNow 1.2s ease-out;
+}
+
+.queue-card.state-flash-ready{
+  animation:flashReady 1.2s ease-out;
+}
+
+.queue-card.state-flash-waiting{
+  animation:flashWaiting 1.2s ease-out;
+}
+
+.queue-card-ghost{
+  position:fixed;
+  z-index:9998;
+  pointer-events:none;
+  margin:0;
+  transform-origin:center center;
+}
+
+.queue-card-ghost>.queue-card{
+  width:100%;
+  height:100%;
+  margin:0;
+}
+
+.queue-card-ghost.is-disintegrating{
+  animation:cardDisintegrate .65s ease-in-out forwards;
+}
+
+@keyframes cardEnter{
+  0%{opacity:0;transform:translateY(10px) scale(.97)}
+  65%{opacity:1;transform:translateY(-2px) scale(1.01)}
+  100%{opacity:1;transform:translateY(0) scale(1)}
+}
+
+@keyframes flashNow{
+  0%{background:#ecfdf5;border-color:#10b981;box-shadow:0 0 18px rgba(16,185,129,.5)}
+  100%{box-shadow:0 1px 2px rgba(15,23,42,.03)}
+}
+
+@keyframes flashReady{
+  0%{background:#fffbeb;border-color:#f59e0b;box-shadow:0 0 18px rgba(245,158,11,.5)}
+  100%{box-shadow:0 1px 2px rgba(15,23,42,.03)}
+}
+
+@keyframes flashWaiting{
+  0%{background:#eff6ff;border-color:#3b82f6;box-shadow:0 0 18px rgba(59,130,246,.5)}
+  100%{box-shadow:0 1px 2px rgba(15,23,42,.03)}
+}
+
+@keyframes cardDisintegrate{
+  0%{opacity:1;transform:scale(1) translateY(0);filter:blur(0)}
+  45%{opacity:.65;transform:scale(1.04) translateY(-5px);filter:blur(1.5px) contrast(1.35);background:#fee2e2;border-color:#ef4444}
+  100%{opacity:0;transform:scale(.58) translateY(18px) rotate(4deg);filter:blur(7px) grayscale(1)}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .queue-card,
+  .queue-card.state-enter,
+  .queue-card.state-flash-now,
+  .queue-card.state-flash-ready,
+  .queue-card.state-flash-waiting,
+  .queue-card-ghost.is-disintegrating{
+    animation:none!important;
+    transition:none!important;
+  }
 }
 
 @media (orientation:landscape) and (min-width:700px){
