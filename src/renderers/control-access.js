@@ -124,11 +124,13 @@ export function renderControlAccess(root, model) {
         <div class="instance-heading"><h1 class="instance-title">${esc(schoolName)}</h1><div class="screen-caption"><span class="location-caption">${esc(location)}</span><span class="screen-id-caption">${esc(displayId)}</span></div></div>
       </div>
       <div class="topbar-right display-status-area">
-        ${cfg.showOfficialInsideCount!==false?`<section class="compact-counters"><div><strong>${n(counters.inside)}</strong><span>Dentro</span></div><div><strong>${n(counters.entriesToday??counters.entries)}</strong><span>Entradas</span></div><div><strong>${n(counters.exitsToday??counters.exits)}</strong><span>Salidas</span></div></section>`:''}
-        <div class="clock-block"><strong>${esc(time)}</strong><span>${esc(date)}</span></div>
-        <div class="connection-state"><span class="connection-dot ${model.online?'online':'offline'}"></span><small>${model.online?'Conectado':'Sin conexión'}</small></div>
+        <div class="clock-status-stack">
+          <div class="clock-block"><strong>${esc(time)}</strong><span>${esc(date)}</span></div>
+          <div class="connection-state"><span class="connection-dot ${model.online?'online':'offline'}"></span><small>${model.online?'Conectado':'Sin conexión'}</small></div>
+        </div>
       </div>
     </header>
+    ${cfg.showOfficialInsideCount!==false?`<div class="counters-row"><section class="compact-counters"><div><strong>${n(counters.inside)}</strong><span>Dentro</span></div><div><strong>${n(counters.entriesToday??counters.entries)}</strong><span>Entradas</span></div><div><strong>${n(counters.exitsToday??counters.exits)}</strong><span>Salidas</span></div></section></div>`:''}
     ${body}
     <footer class="display-footer"><div class="tip-strip">${esc(cfg.footerMessage||'Prepara tus cosas para estar listo cuando lleguen por ti.')}</div><div class="margin-note"><span class="brand-inline" aria-label="Nexus.Display"><span class="brand-nexus">Nexus</span><span class="brand-dot">.</span><span class="brand-display">Display</span> v${esc(APP_VERSION)}</span><span>${esc(displayId)} · Rev. ${esc(model.revision??'—')}</span></div></footer>
   </section>${edgeMenu}`;
