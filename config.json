@@ -10,6 +10,7 @@
   "showDistance": true,
   "showPriority": true,
   "showTestControls": true,
+  "showAcademicLevel": true,
   "nowAttentionRampMinutes": 5,
   "demo": false
 }
