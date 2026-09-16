@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "nexus-display",
   "compatibility_date": "2026-09-11",
-  "preview_urls": false,
+  "preview_urls": true,
   "build": {
     "command": "npm run build"
   },
