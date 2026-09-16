@@ -1,6 +1,6 @@
 {
   "name": "nexus-display",
-  "version": "0.1.16",
+  "version": "0.1.42",
   "private": true,
   "type": "module",
   "scripts": {
