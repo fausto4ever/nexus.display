@@ -5,7 +5,7 @@ import JavaScriptObfuscator from 'javascript-obfuscator';
 import CleanCSS from 'clean-css';
 import { minify as minifyHtml } from 'html-minifier-terser';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');const dist=path.join(root,'dist');
-const rootRuntimeFiles=['index.html','styles.css','config.json','_headers'];
+const rootRuntimeFiles=['index.html','styles.css','styles-enhanced.css','config.json','manifest.webmanifest','_headers'];
 async function exists(p){try{await access(path.join(root,p));return true}catch{return false}}
 async function walk(dir){const entries=await readdir(dir,{withFileTypes:true});const files=[];for(const entry of entries){const absolute=path.join(dir,entry.name);if(entry.isDirectory())files.push(...await walk(absolute));else files.push(absolute)}return files}
 function obfuscateJavaScript(source){return JavaScriptObfuscator.obfuscate(source,{compact:true,controlFlowFlattening:false,deadCodeInjection:false,debugProtection:false,disableConsoleOutput:false,identifierNamesGenerator:'hexadecimal',renameGlobals:false,selfDefending:false,simplify:true,splitStrings:false,stringArray:true,stringArrayEncoding:['base64'],stringArrayThreshold:.7,transformObjectKeys:false,unicodeEscapeSequence:false}).getObfuscatedCode()}
