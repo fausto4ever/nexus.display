@@ -10,5 +10,7 @@
   "showDistance": true,
   "showPriority": true,
   "showTestControls": true,
+  "nowAttentionStepSeconds": 30,
+  "nowAttentionMaxLevel": 2,
   "demo": false
 }
