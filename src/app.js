@@ -13,6 +13,13 @@ const SCREEN_TOKEN_KEY = 'nexus.display.screenToken';
 const ENROLLMENT_POLL_MS = 2000;
 const RETRY_DELAYS = [2000, 5000, 10000, 30000, 60000];
 
+// TEMPORARY PREVIEW TEST ONLY — REMOVE after we finish validating historical Nexus.Display previews.
+// Any Cloudflare version/preview host like <version>-nexus-display.shindarked.workers.dev skips screen enrollment.
+// Production nexus-display.shindarked.workers.dev keeps the normal screen enrollment/authentication flow.
+const PREVIEW_HOST_SUFFIX = '-nexus-display.shindarked.workers.dev';
+function isPreviewDeployment(){return window.location.hostname.toLowerCase().endsWith(PREVIEW_HOST_SUFFIX);}
+function previewStatePath(config={}){const params=new URLSearchParams();params.set('view',String(config.view||config.mode||'DELIVERIES'));for(const key of ['locationId','entityType','rows']){const value=config[key];if(value!==undefined&&value!==null&&value!=='')params.set(key,String(value));}return `/api/display/state?${params.toString()}`;}
+
 const demoState = cfg => ({online:false,revision:0,updatedAt:new Date().toLocaleTimeString(),config:cfg,counters:{inside:428,entriesToday:437,exitsToday:9},pickupRequests:[{requestId:'DEMO-1',studentName:'Alumno en puerta',status:'AT_GATE',priority:1,distanceMeters:8,vehicle:{description:'Vehículo gris'}},{requestId:'DEMO-2',studentName:'Alumno en camino',status:'ON_THE_WAY',priority:3,distanceMeters:42,vehicle:{description:'SUV blanca'}}]});
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 function hideSplash(){if(!splash||splash.classList.contains('hide'))return;requestAnimationFrame(()=>splash.classList.add('hide'));setTimeout(()=>splash.remove(),650);}
@@ -38,14 +45,42 @@ function pulseLane(lane){const section=root.querySelector(`.queue-lane-${String(
 function animatePaint(before,oldLanes,newLanes){const changedLanes=new Set();root.querySelectorAll('.queue-card[data-request-id]').forEach(card=>{const id=card.dataset.requestId,snap=before.get(id),newLane=card.dataset.lane||newLanes.get(id)||'';if(snap){const rect=card.getBoundingClientRect(),dx=snap.rect.left-rect.left,dy=snap.rect.top-rect.top,oldLane=oldLanes.get(id)||snap.lane,laneChanged=Boolean(oldLane&&newLane&&oldLane!==newLane),moved=Math.abs(dx)>1||Math.abs(dy)>1;if(moved){card.animate([{transform:`translate(${dx}px,${dy}px) scale(.975)`,boxShadow:'0 12px 30px rgba(15,23,42,.22)'},{offset:.72,transform:'translate(0,0) scale(1.018)',boxShadow:'0 7px 18px rgba(15,23,42,.13)'},{transform:'translate(0,0) scale(1)',boxShadow:'0 1px 2px rgba(15,23,42,.03)'}],{duration:760,easing:'cubic-bezier(.16,.8,.2,1)'});if(!laneChanged){card.classList.add('state-reorder');setTimeout(()=>card.classList.remove('state-reorder'),900);}}if(laneChanged){changedLanes.add(newLane);card.classList.add(`state-flash-${newLane.toLowerCase()}`);setTimeout(()=>card.classList.remove(`state-flash-${newLane.toLowerCase()}`),1300);}}else{card.classList.add('state-enter');setTimeout(()=>card.classList.remove('state-enter'),700);}});changedLanes.forEach(pulseLane);refreshLiveTimers(root);}
 
 async function start(){
-  const localConfig=await loadConfig();let identity=storedIdentity();const client=new GatewayClient(localConfig.gatewayBaseUrl,identity.screenToken);let effectiveConfig={...localConfig};let testModeOverride=null;let lastModel=localConfig.demo?demoState(effectiveConfig):{online:false,config:effectiveConfig,counters:{},pickupRequests:[]};let lastLaneMap=modelLaneMap(lastModel);
-  if(localConfig.gatewayBaseUrl&&(!identity.screenId||!identity.screenToken))identity=await enrollDisplay(client,localConfig);
-  if(identity.screenId)effectiveConfig.screenId=identity.screenId;
+  const localConfig=await loadConfig();
+  const previewBypassEnrollment=isPreviewDeployment();
+  let identity=storedIdentity();
+  const client=new GatewayClient(localConfig.gatewayBaseUrl,identity.screenToken);
+  let effectiveConfig={...localConfig};let testModeOverride=null;let lastModel=localConfig.demo?demoState(effectiveConfig):{online:false,config:effectiveConfig,counters:{},pickupRequests:[]};let lastLaneMap=modelLaneMap(lastModel);
+
+  // TEMPORARY PREVIEW TEST ONLY — REMOVE this block after preview validation.
+  // Preview builds deliberately ignore any stored screen identity/token and consume the Gateway public display-state endpoint.
+  if(previewBypassEnrollment){identity={screenId:'',screenToken:''};client.setScreenToken('');effectiveConfig.screenId='';}
+
+  // TEMPORARY PREVIEW TEST ONLY — enrollment remains mandatory in production; only preview hosts bypass this line.
+  if(!previewBypassEnrollment&&localConfig.gatewayBaseUrl&&(!identity.screenId||!identity.screenToken))identity=await enrollDisplay(client,localConfig);
+  if(!previewBypassEnrollment&&identity.screenId)effectiveConfig.screenId=identity.screenId;
+
   const paint=model=>{const before=cardSnapshot(),oldLanes=lastLaneMap,newLanes=modelLaneMap(model),config=testModeOverride?{...model.config,mode:testModeOverride}:model.config;animateRemovedCards(before,newLanes);getRenderer(config?.app||effectiveConfig.app)(root,{...model,config});requestAnimationFrame(()=>animatePaint(before,oldLanes,newLanes));lastLaneMap=newLanes;};
   root.addEventListener('click',async event=>{const toggle=event.target.closest('[data-edge-menu-toggle]');if(toggle){root.querySelector('.edge-menu')?.classList.toggle('open');return;}const fullscreen=event.target.closest('[data-fullscreen-toggle]');if(fullscreen){await toggleFullscreen();root.querySelector('.edge-menu')?.classList.remove('open');return;}const button=event.target.closest('[data-display-mode]');if(!button)return;testModeOverride=button.dataset.displayMode;paint(lastModel);});
   paint(lastModel);
   setInterval(()=>refreshLiveTimers(root),1000);
-  async function refresh(){try{if(!effectiveConfig.screenId)throw new Error('Pantalla no vinculada');const remoteConfig=await client.getDisplayConfig(effectiveConfig.screenId);effectiveConfig={...effectiveConfig,...normalizeRemoteConfig(remoteConfig.config||remoteConfig)};const state=await client.getDisplayState(effectiveConfig.screenId);if(state.config)effectiveConfig={...effectiveConfig,...normalizeRemoteConfig(state.config)};lastModel={online:true,config:effectiveConfig,counters:state.counters||{},pickupRequests:normalizeDisplayItems(state.items||state.pickupRequests||[]),revision:state.revision??0,updatedAt:new Date().toLocaleTimeString()};}catch(error){const code=error?.data?.error;if(['SCREEN_AUTH_REQUIRED','SCREEN_AUTH_INVALID','SCREEN_NOT_FOUND'].includes(code)){clearIdentity();identity=await enrollDisplay(client,localConfig);effectiveConfig.screenId=identity.screenId;return refresh();}lastModel={...lastModel,online:false,config:effectiveConfig,updatedAt:new Date().toLocaleTimeString(),error:String(error?.message||error)};}paint(lastModel);}
+  async function refresh(){try{
+    if(previewBypassEnrollment){
+      // TEMPORARY PREVIEW TEST ONLY — REMOVE this public-state branch after visual preview testing.
+      // No screenId or bearer token is sent here; Gateway /api/display/state supports an unauthenticated preview-style query.
+      const state=await client.getJson(previewStatePath(effectiveConfig),{auth:false});
+      if(state.config)effectiveConfig={...effectiveConfig,...normalizeRemoteConfig(state.config),screenId:''};
+      lastModel={online:true,config:effectiveConfig,counters:state.counters||{},pickupRequests:normalizeDisplayItems(state.items||state.pickupRequests||[]),revision:state.revision??0,updatedAt:new Date().toLocaleTimeString()};
+    }else{
+      if(!effectiveConfig.screenId)throw new Error('Pantalla no vinculada');
+      const remoteConfig=await client.getDisplayConfig(effectiveConfig.screenId);effectiveConfig={...effectiveConfig,...normalizeRemoteConfig(remoteConfig.config||remoteConfig)};
+      const state=await client.getDisplayState(effectiveConfig.screenId);if(state.config)effectiveConfig={...effectiveConfig,...normalizeRemoteConfig(state.config)};
+      lastModel={online:true,config:effectiveConfig,counters:state.counters||{},pickupRequests:normalizeDisplayItems(state.items||state.pickupRequests||[]),revision:state.revision??0,updatedAt:new Date().toLocaleTimeString()};
+    }
+  }catch(error){const code=error?.data?.error;
+    // TEMPORARY PREVIEW TEST ONLY — previews must never fall back into enrollment while this test switch exists.
+    if(!previewBypassEnrollment&&['SCREEN_AUTH_REQUIRED','SCREEN_AUTH_INVALID','SCREEN_NOT_FOUND'].includes(code)){clearIdentity();identity=await enrollDisplay(client,localConfig);effectiveConfig.screenId=identity.screenId;return refresh();}
+    lastModel={...lastModel,online:false,config:effectiveConfig,updatedAt:new Date().toLocaleTimeString(),error:String(error?.message||error)};
+  }paint(lastModel);}
   if(effectiveConfig.gatewayBaseUrl)await refresh();hideSplash();if(effectiveConfig.gatewayBaseUrl)setInterval(refresh,Math.max(1000,Number(effectiveConfig.pollIntervalMs)||5000));
 }
 start().catch(error=>{hideSplash();root.textContent=`No se pudo iniciar Nexus.Display: ${String(error?.message||error)}`;});
