@@ -8,14 +8,21 @@ if(window.location.hostname.toLowerCase().endsWith(PREVIEW_SUFFIX)){
   const cloneJsonResponse=(response,data)=>new Response(JSON.stringify(data),{status:response.status,statusText:response.statusText,headers:response.headers});
   const text=v=>String(v??'').trim();
   const first=(...values)=>values.find(v=>text(v))??null;
-  const academicFrom=(student={})=>({
-    levelId:first(student.levelId,student.idNivel),
-    levelName:first(student.levelName,student.level,student.nivel),
-    gradeId:first(student.gradeId,student.idGrade,student.idGrado),
-    gradeName:first(student.gradeName,student.grade,student.grado),
-    groupId:first(student.groupId,student.idGroup,student.idGrupo),
-    groupName:first(student.groupName,student.group,student.grupo)
-  });
+  const entityId=v=>String(v?.id??v?.levelId??v?.gradeId??v?.groupId??v?.displayId??'');
+  const entityName=v=>first(v?.name,v?.levelName,v?.gradeName,v?.groupName,v?.level,v?.grade,v?.group,v?.displayName);
+  const academicFrom=(student={},catalogs={})=>{
+    const levelId=first(student.levelId,student.idNivel);
+    const gradeId=first(student.gradeId,student.idGrade,student.idGrado);
+    const groupId=first(student.groupId,student.idGroup,student.idGrupo);
+    return{
+      levelId,
+      levelName:first(student.levelName,student.level,student.nivel,catalogs.levels.get(String(levelId||''))),
+      gradeId,
+      gradeName:first(student.gradeName,student.grade,student.grado,catalogs.grades.get(String(gradeId||''))),
+      groupId,
+      groupName:first(student.groupName,student.group,student.grupo,catalogs.groups.get(String(groupId||'')))
+    };
+  };
   window.fetch=async(input,init)=>{
     const response=await nativeFetch(input,init);
     try{
@@ -32,13 +39,15 @@ if(window.location.hostname.toLowerCase().endsWith(PREVIEW_SUFFIX)){
       const pickupData=await pickupResponse.json(),syncData=await syncResponse.json();
       const requests=Array.isArray(pickupData?.requests)?pickupData.requests:[];
       const students=Array.isArray(syncData?.students)?syncData.students:[];
+      const toCatalog=values=>new Map((Array.isArray(values)?values:[]).map(v=>[entityId(v),entityName(v)]).filter(([id,name])=>id&&name));
+      const catalogs={levels:toCatalog(syncData?.levels),grades:toCatalog(syncData?.grades),groups:toCatalog(syncData?.groups)};
       const byRequest=new Map(requests.map(r=>[String(r.requestId||''),r]));
       const byStudent=new Map(students.map(s=>[String(s.id||s.studentId||s.idAlumno||''),s]));
       state.items=items.map(item=>{
         const request=byRequest.get(String(item.requestId||''))||{};
         const studentId=first(request.studentId,item.studentId);
         const student=byStudent.get(String(studentId||''))||{};
-        const academic=academicFrom(student);
+        const academic=academicFrom(student,catalogs);
         const explicitMode=first(request.arrivalMode,request.travelMode,item.arrivalMode,item.travelMode);
         const arrivalMode=explicitMode||((request.vehicle&&typeof request.vehicle==='object')?'CAR':'WALK');
         return {...item,studentId,studentName:first(item.studentName,item.displayName,request.studentName,student.name),...academic,arrivalMode,travelMode:arrivalMode};
