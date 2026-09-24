@@ -10,15 +10,7 @@ Nexus.Display debe poder arrancar inmediatamente con su última configuración y
 
 Gateway continúa siendo la autoridad de los datos operativos de Pickup y la autoridad remota de la configuración administrada de cada pantalla, pero Display no debe consultar su configuración completa en cada polling.
 
-La sincronización debe permitir simultáneamente:
-
-- configuración remota desde administración;
-- autoconfiguración local desde una pantalla touch cuando esté permitida;
-- operación visual inmediata con caché local;
-- consulta filtrada del estado operativo;
-- detección barata de cambios de configuración;
-- reconciliación no invasiva del DOM;
-- continuidad temporal si Gateway o la red no están disponibles.
+La sincronización debe permitir simultáneamente configuración remota, autoconfiguración touch autorizada, operación visual inmediata con caché local, consulta filtrada del estado operativo, detección barata de cambios de configuración, reconciliación no invasiva del DOM y continuidad visual durante interrupciones temporales de red.
 
 ## 2. Principios
 
@@ -34,67 +26,23 @@ La sincronización debe permitir simultáneamente:
 
 ## 3. Configuración versionada por pantalla
 
-Gateway debe mantener una revisión monotónica por `screenId`, por ejemplo:
+Gateway debe mantener una revisión monotónica por `screenId` (`configRevision`). Debe persistir por pantalla, aumentar cuando Admin o una pantalla touch autorizada modifica la configuración efectiva, no cambiar por movimientos de Pickup y estar incluida tanto en la configuración completa como en cada respuesta normal de estado.
 
-```json
-{
-  "screenId": "SCR-001",
-  "configRevision": 8
-}
-```
-
-`configRevision` cambia únicamente cuando cambia la configuración efectiva de esa pantalla.
-
-Requisitos:
-
-- debe persistir por pantalla;
-- debe aumentar cuando Admin modifica la configuración;
-- debe aumentar cuando una pantalla autorizada guarda una autoconfiguración;
-- no debe aumentar por cambios de Pickup Requests;
-- debe devolverse junto con la configuración completa;
-- debe estar disponible en la respuesta normal de estado para detectar cambios sin otra llamada.
-
-No se requiere que Display consulte `/api/display/config` mientras su revisión local coincida con la revisión anunciada por Gateway.
+Mientras la revisión local coincida con la anunciada por Gateway, Display no necesita consultar `/api/display/config`.
 
 ## 4. Configuración local de Display
 
-Display almacenará localmente al menos:
-
-```json
-{
-  "screenId": "SCR-001",
-  "configRevision": 8,
-  "config": {
-    "view": "DELIVERIES",
-    "locationId": "1",
-    "statuses": ["WAITING", "READY", "AT_GATE"],
-    "rows": 10,
-    "showCounter": true,
-    "showDistance": true,
-    "showPriority": true
-  }
-}
-```
-
-Los nombres definitivos de los campos deben alinearse con el contrato vigente de Gateway. `statuses` se propone como filtro explícito si todavía no forma parte de `display_screens`.
+Display almacenará localmente su `screenId`, `configRevision` y filtros/configuración efectiva, por ejemplo vista, ubicación, estados visibles, filas y opciones visuales. Los nombres definitivos deben alinearse con el contrato vigente de Gateway.
 
 ## 5. Arranque rápido
 
-Al abrir:
-
-1. Display lee configuración local.
-2. Display lee el último snapshot visual local, incluidos los últimos contadores/métricas recibidos.
-3. Display pinta inmediatamente sin esperar red.
-4. En paralelo inicia sincronización con Gateway.
-5. La primera respuesta autoritativa se reconcilia contra el DOM ya visible.
-
-Gateway no debe exigir una descarga previa de configuración completa para permitir la primera consulta de estado cuando Display ya posee una configuración/revisión válida.
+Al abrir, Display lee su configuración local y el último snapshot visual —incluidos los últimos contadores y métricas—, pinta inmediatamente sin esperar red y en paralelo inicia sincronización con Gateway. La primera respuesta autoritativa se reconcilia contra el DOM ya visible.
 
 El snapshot local es exclusivamente visual. No puede completar, cancelar, restaurar ni modificar una Pickup Request ni recalcular métricas autoritativas.
 
 ## 6. Estado filtrado de Display
 
-Se prefiere mantener una frontera específica de Display en vez de hacer que Nexus.Display consuma directamente el contrato general `/api/pickup-requests/query`.
+Se prefiere mantener una frontera específica de Display en vez de hacer que Nexus.Display consuma directamente `/api/pickup-requests/query`.
 
 Ruta propuesta:
 
@@ -118,19 +66,11 @@ Ejemplo:
 }
 ```
 
-Gateway debe validar los filtros contra la identidad, permisos y configuración permitida de la pantalla antes de consultar el estado operativo.
-
-Internamente Gateway puede reutilizar la misma semántica/función del contrato:
-
-```http
-POST /api/pickup-requests/query
-```
-
-para la cola de Pickup visible, pero Display no queda acoplado directamente a ese contrato. Los contadores y métricas pueden provenir de otras fuentes/colas operativas del Gateway y no deben asumirse derivados del Durable Object de Pickup.
+Gateway valida los filtros contra identidad, permisos y configuración permitida de la pantalla. Para la cola Pickup visible puede reutilizar internamente la semántica de `/api/pickup-requests/query`. Los contadores y métricas pueden provenir de otras fuentes/colas operativas y no deben asumirse derivados del Durable Object de Pickup.
 
 ## 7. Respuesta de estado y métricas autoritativas
 
-Ejemplo:
+Ejemplo contractual:
 
 ```json
 {
@@ -141,53 +81,60 @@ Ejemplo:
   "items": [],
   "counters": {
     "inside": 427,
-    "deliveredToday": 38,
+    "exitsToday": 38,
     "averageDeliverySeconds": 94,
-    "averageDeliverySampleSize": 38,
+    "averageDeliverySampleSize": 31,
     "updatedAt": "2026-09-23T23:15:04.000Z"
   }
 }
 ```
 
-Significado:
+Semántica obligatoria:
 
-- `configRevision`: revisión remota actual de configuración de esa pantalla.
-- `revision`: revisión del estado operativo/proyección, independiente de `configRevision`.
-- `items`: Pickup Requests/proyección ya autorizada para Display.
-- `counters.inside`: cantidad autoritativa de alumnos actualmente dentro según la fuente/cola operativa correspondiente.
-- `counters.deliveredToday`: cantidad de entregas Pickup completadas en el día local de la instancia dentro del alcance/filtro aplicable.
-- `counters.averageDeliverySeconds`: promedio de tiempo entre `AT_GATE` y `COMPLETED` para entregas válidas del día y alcance aplicable.
-- `counters.averageDeliverySampleSize`: número de requests utilizadas para calcular el promedio.
-- `counters.updatedAt`: instante UTC de actualización/cálculo de las métricas.
+- `inside`: cantidad autoritativa de alumnos que continúan físicamente dentro de la institución.
+- `exitsToday`: cantidad autoritativa de alumnos que ya registraron salida de la institución durante el día local actual, independientemente de que hayan tenido o no una Pickup Request.
+- `averageDeliverySeconds`: promedio operativo de entrega calculado exclusivamente con Pickup Requests válidas que recorrieron `AT_GATE → COMPLETED`.
+- `averageDeliverySampleSize`: cantidad de Pickup Requests que participaron en ese promedio; **no tiene por qué coincidir con `exitsToday`**.
+- `updatedAt`: instante UTC de actualización/cálculo de las métricas.
 
-Si `configRevision` coincide con la local, Display continúa sin solicitar configuración.
+### 7.1 Etiquetas de interfaz vs semántica del contrato
 
-Si no coincide, Display puede seguir mostrando la escena actual mientras obtiene la nueva configuración.
+La interfaz de Nexus.Display puede mostrar las etiquetas:
 
-### 7.1 Fuente de los contadores
+```text
+PRESENTES   → counters.inside
+ENTREGADOS  → counters.exitsToday
+PROMEDIO    → counters.averageDeliverySeconds
+```
 
-Los contadores son responsabilidad de Gateway. Nexus.Display no debe inferirlos contando los `items` recibidos.
+La etiqueta visual **ENTREGADOS** es una decisión de presentación. Su valor representa realmente **alumnos que salieron de la institución hoy**, no el número de Pickup Requests `COMPLETED`.
 
-En particular, `inside` no debe asumirse derivado del Durable Object de Pickup. Gateway debe obtenerlo de la fuente/cola operativa que represente correctamente el estado de acceso de alumnos.
+Por tanto, para estos dos indicadores principales:
 
-`deliveredToday` y el promedio de entrega requieren conocimiento de solicitudes completadas, pero Display **no debe solicitar ni conservar `COMPLETED` sólo para calcularlos**. Gateway debe obtener/calcular esos valores usando la fuente operativa adecuada y entregar únicamente el agregado necesario en `/api/display/state`.
+```text
+PRESENTES  = alumnos que aún están dentro
+ENTREGADOS = alumnos que ya salieron hoy
+```
 
-### 7.2 Promedio AT_GATE → COMPLETED
+No debe calcularse `ENTREGADOS` contando requests `COMPLETED`.
 
-Para cada Pickup Request válida:
+### 7.2 Fuente de PRESENTES y ENTREGADOS
+
+Ambos valores son responsabilidad de Gateway y deben provenir de la fuente/cola operativa que represente correctamente entradas y salidas de alumnos.
+
+Display no debe inferirlos contando `items`, Pickup Requests ni eventos del DOM. En particular, `inside` y `exitsToday` no deben asumirse derivados del Durable Object de Pickup.
+
+Gateway puede conservar además `entriesToday` si es útil internamente o para otras vistas, pero los indicadores requeridos actualmente por Nexus.Display son `inside` y `exitsToday`.
+
+### 7.3 Promedio AT_GATE → COMPLETED
+
+El promedio sí pertenece al flujo Pickup. Para cada Pickup Request válida:
 
 ```text
 deliverySeconds = completedAt - atGateAt
 ```
 
-Participan únicamente requests que:
-
-- hayan terminado en `COMPLETED`;
-- tengan `atGateAt` válido;
-- tengan `completedAt` válido;
-- correspondan al día local y alcance solicitado.
-
-`CANCELLED`, `EXPIRED` y completadas sin un `atGateAt` válido no deben contaminar el promedio.
+Participan únicamente requests que terminaron en `COMPLETED`, tienen `atGateAt` y `completedAt` válidos y corresponden al día local y alcance solicitado. `CANCELLED`, `EXPIRED` y completadas sin `atGateAt` válido no participan.
 
 Cuando no exista ninguna muestra válida:
 
@@ -198,221 +145,76 @@ Cuando no exista ninguna muestra válida:
 }
 ```
 
-No debe devolverse artificialmente `0` segundos como promedio.
+Display no necesita recibir ni conservar requests `COMPLETED` para calcular este promedio: Gateway entrega el agregado autoritativo.
 
-### 7.3 Total y por ubicación
+### 7.4 Alcance global y por ubicación
 
-Gateway debe poder calcular/entregar `deliveredToday` y `averageDeliverySeconds`:
+El promedio de entrega debe poder calcularse globalmente o por `locationId`/`locationIds`, porque la ubicación pertenece al flujo Pickup y permite medir cuánto tarda una entrega en cada punto.
 
-- de forma global para la instancia cuando la pantalla no esté limitada a una ubicación;
-- filtrados por `locationId`/`locationIds` cuando la pantalla esté configurada para una o más ubicaciones.
+Los contadores institucionales `inside` y `exitsToday` son, por defecto, totales de la institución. No deben filtrarse automáticamente por la ubicación Pickup de la pantalla salvo que en el futuro exista una fuente de acceso que permita definir explícitamente contadores por ubicación física.
 
-Ejemplo conceptual:
-
-```text
-HOY
-├─ GLOBAL: entregados 38, promedio 94 s
-├─ PUERTA-1: entregados 21, promedio 81 s
-└─ PUERTA-2: entregados 17, promedio 110 s
-```
-
-Gateway decide la estrategia interna más eficiente para obtener o mantener estos agregados. El contrato de Display exige el resultado, no una implementación específica ni que los `COMPLETED` permanezcan en la cola viva.
-
-### 7.4 Relación entre salida y entrega
-
-`deliveredToday` representa **Pickup Requests completadas**, no simplemente todas las salidas registradas durante el día.
-
-Por lo tanto:
-
-```text
-exitsToday != deliveredToday
-```
-
-Gateway puede conservar/exponer `entriesToday` o `exitsToday` si otras vistas los necesitan, pero no deben utilizarse como sustituto de `deliveredToday`.
+Esto evita mezclar dos conceptos distintos: **ubicación de recogida** y **presencia/salida institucional**.
 
 ## 8. Recuperación de configuración sólo cuando cambió
 
-Cuando Display tiene revisión `7` y la respuesta de estado anuncia `8`:
-
-```text
-Display local: 7
-Gateway:       8
-```
-
-Display solicita entonces:
-
-```http
-GET /api/display/config?screenId=SCR-001
-```
-
-Respuesta:
-
-```json
-{
-  "ok": true,
-  "configRevision": 8,
-  "config": {}
-}
-```
-
-Display guarda la nueva configuración y la aplica mediante transición visual. Después solicita/reconcilia el estado usando los nuevos filtros.
-
-No debe existir obligación de consultar esta ruta en cada polling.
+Si Display tiene `configRevision=7` y `/api/display/state` anuncia `8`, Display continúa mostrando la escena actual, recupera `/api/display/config`, guarda la revisión 8, aplica la nueva configuración mediante transición visual y reconcilia el estado usando los nuevos filtros. No debe consultar configuración completa en cada polling.
 
 ## 9. Autoconfiguración touch
 
-Cuando `configurationMode` permita autoconfiguración, Display puede modificar sus filtros desde su panel local.
-
-La escritura continúa a través de Gateway, por ejemplo:
-
-```http
-PUT /api/display/config
-Authorization: Bearer <screenToken>
-```
-
-Ejemplo:
-
-```json
-{
-  "screenId": "SCR-001",
-  "baseConfigRevision": 8,
-  "locationId": "2",
-  "statuses": ["READY", "AT_GATE"],
-  "rows": 8
-}
-```
-
-Respuesta esperada:
-
-```json
-{
-  "ok": true,
-  "configRevision": 9,
-  "config": {}
-}
-```
-
-Se recomienda `baseConfigRevision` para evitar que una pantalla touch sobrescriba silenciosamente una modificación administrativa más nueva. Si existe conflicto, Gateway debe responder un error explícito de revisión/conflicto y devolver o permitir recuperar la configuración vigente.
-
-Gateway debe seguir aplicando `configurationMode` (`ADMIN_ONLY`, `SELF_SERVICE`, `LOCKED` o equivalentes vigentes) para decidir qué campos puede modificar la pantalla.
+Cuando `configurationMode` lo permita, Display puede modificar sus filtros desde el panel local y escribirlos a través de Gateway. Se recomienda enviar `baseConfigRevision` para detectar conflictos Admin ↔ Touch. Gateway debe devolver la nueva `configRevision` y aplicar los permisos definidos por `configurationMode`.
 
 ## 10. Aplicación optimista en Display
 
-Una modificación touch puede aplicarse inmediatamente sobre el DOM y la caché local para que la interfaz no dependa de la latencia de red.
-
-Después:
-
-1. Display envía la configuración a Gateway.
-2. Gateway valida y persiste.
-3. Display adopta la `configRevision` confirmada.
-4. Display consulta estado con los filtros confirmados.
-5. Display reconcilia diferencias.
-
-Si Gateway rechaza el cambio, Display debe recuperar/adoptar la configuración autoritativa sin recargar la aplicación completa.
+Una modificación touch puede aplicarse inmediatamente al DOM y caché local. Después Display la envía a Gateway, adopta la revisión confirmada, consulta estado con los filtros confirmados y reconcilia diferencias. Si Gateway rechaza el cambio, Display recupera la configuración autoritativa sin recargar la aplicación completa.
 
 ## 11. Reconciliación visual
 
-Las respuestas deben conservar `requestId` como identidad estable para permitir que Display determine:
-
-- elemento nuevo → animación de entrada;
-- mismo request y mismo carril → actualización/reordenamiento;
-- mismo request con nuevo estado → movimiento entre carriles;
-- request ausente → animación de salida/desaparición.
-
-Un cambio de configuración/filtros puede producir una transición global de escena tipo “cambio de canal”. Después de la transición se reconcilian los elementos que permanecen, salen o entran.
-
-Los contadores y el promedio pueden animar visualmente del valor anterior al nuevo, pero Display no interpola ni recalcula el valor autoritativo.
-
-Gateway no necesita definir las animaciones; sólo debe conservar identidad y consistencia de la proyección y métricas.
+Las respuestas deben conservar `requestId` estable para distinguir elementos nuevos, movimientos entre carriles, reordenamientos y desapariciones. Un cambio de filtros/configuración puede producir una transición global tipo “cambio de canal”. Los contadores y promedio pueden animarse visualmente entre valores, pero Display no recalcula el valor autoritativo.
 
 ## 12. Polling normal
 
-El ciclo normal debe reducirse a una sola consulta operativa:
+El ciclo normal debe reducirse a:
 
 ```text
 Display → POST /api/display/state
 Gateway → items + counters + revision + configRevision
 ```
 
-No:
-
-```text
-Display → GET config
-Display → GET state
-```
-
-cada pocos segundos.
-
-La configuración completa sólo se recupera si:
-
-- no existe configuración local;
-- cambió `configRevision`;
-- Display detecta corrupción/incompatibilidad local;
-- el usuario solicita explícitamente restaurar/sincronizar;
-- Gateway exige una nueva configuración por cambio incompatible de contrato.
+La configuración completa sólo se recupera si no existe localmente, cambió `configRevision`, existe corrupción/incompatibilidad, el usuario fuerza sincronización o Gateway exige una nueva configuración por cambio incompatible de contrato.
 
 ## 13. Filtros y seguridad
 
-Los filtros enviados por Display son una solicitud de proyección, no una autorización.
-
-Gateway debe:
-
-- autenticar `screenId` + `screenToken`;
-- validar que la pantalla esté habilitada;
-- limitar filtros a los valores permitidos por su configuración/modo;
-- consultar la fuente operativa apropiada para cada dato;
-- no exponer datos adicionales porque el cliente envíe filtros más amplios;
-- devolver sólo campos necesarios para la presentación.
+Los filtros enviados por Display son una solicitud de proyección, no una autorización. Gateway autentica `screenId` + `screenToken`, valida que la pantalla esté habilitada, limita filtros a valores permitidos, consulta la fuente operativa apropiada para cada dato y devuelve únicamente campos necesarios para presentación.
 
 ## 14. Compatibilidad / migración
 
-Durante la migración puede mantenerse temporalmente:
+Durante la migración puede mantenerse temporalmente `GET /api/display/state?screenId=...`, pero el objetivo es disponer de un contrato con filtros explícitos, métricas autoritativas y `configRevision`, sin requerir `GET /api/display/config` en cada polling.
 
-```http
-GET /api/display/state?screenId=...
-```
-
-pero el objetivo es disponer de un contrato que permita filtros explícitos, métricas autoritativas y `configRevision` sin requerir `GET /api/display/config` en cada polling.
-
-El Gateway debe poder mantener compatibilidad con Display desplegados anteriores mientras se actualizan las pantallas.
+Gateway debe mantener compatibilidad con Displays anteriores mientras se actualizan las pantallas.
 
 ## 15. Requisitos concretos solicitados a Gateway
 
 1. Añadir `configRevision` monotónica por `screenId`.
-2. Incluir `configRevision` en `GET /api/display/config`.
-3. Incluir `configRevision` en cada respuesta de estado de Display.
-4. Permitir estado filtrado para Display sin descargar configuración completa previamente.
-5. Preferentemente soportar `POST /api/display/state` con filtros explícitos.
-6. Resolver la cola visible de Pickup contra el estado operativo apropiado, pudiendo reutilizar la semántica de `/api/pickup-requests/query`.
-7. Mantener autenticación y autorización por pantalla; los filtros del cliente nunca amplían permisos.
-8. Mantener `requestId` estable en los items proyectados.
-9. Separar `configRevision` de la revisión del estado operativo.
-10. Permitir `PUT /api/display/config` desde pantalla sólo cuando `configurationMode` lo autorice.
-11. Devolver la nueva `configRevision` al guardar configuración.
-12. Soportar control optimista mediante `baseConfigRevision` o mecanismo equivalente para detectar conflictos Admin ↔ Touch.
-13. Mantener compatibilidad temporal con el `GET /api/display/state` actual.
-14. No obligar a Display a consultar GS/histórico ni requests `COMPLETED` para construir la cola viva o sus métricas.
-15. Entregar `inside` como contador autoritativo desde la fuente/cola operativa correspondiente.
-16. Entregar `deliveredToday` como cantidad de Pickup Requests completadas, diferenciada de `exitsToday`.
-17. Entregar `averageDeliverySeconds` calculado sobre el intervalo `AT_GATE → COMPLETED` de muestras válidas.
-18. Entregar `averageDeliverySampleSize` para indicar cuántas requests participan en el promedio.
-19. Permitir que entregados/promedio sean globales o filtrados por ubicación según la configuración/filtros efectivos de la pantalla.
-20. Entregar `updatedAt` para identificar la vigencia de las métricas.
-21. Documentar el contrato final para que Nexus.Display pueda eliminar el polling permanente de `/api/display/config` y cualquier cálculo local de métricas.
+2. Incluir `configRevision` en configuración y respuestas de estado.
+3. Permitir estado filtrado sin descargar configuración completa previamente.
+4. Preferentemente soportar `POST /api/display/state` con filtros explícitos.
+5. Resolver la cola Pickup visible contra el estado operativo apropiado, pudiendo reutilizar `/api/pickup-requests/query` internamente.
+6. Mantener autenticación/autorización por pantalla; los filtros nunca amplían permisos.
+7. Mantener `requestId` estable.
+8. Separar `configRevision` de la revisión del estado operativo.
+9. Permitir escritura de configuración desde pantalla sólo cuando `configurationMode` lo autorice y soportar control optimista mediante `baseConfigRevision` o equivalente.
+10. Mantener compatibilidad temporal con el `GET /api/display/state` actual.
+11. Entregar `inside` como cantidad de alumnos que todavía permanecen dentro de la institución.
+12. Entregar `exitsToday` como cantidad de alumnos que ya salieron hoy, independientemente de Pickup Requests.
+13. No calcular `exitsToday` a partir de `COMPLETED`; debe provenir de la fuente/cola operativa de acceso/salidas.
+14. Entregar `averageDeliverySeconds` calculado sobre `AT_GATE → COMPLETED` de Pickup Requests válidas.
+15. Entregar `averageDeliverySampleSize` para conocer el tamaño de muestra del promedio.
+16. Permitir promedio global o filtrado por ubicación Pickup.
+17. Mantener `inside` y `exitsToday` como métricas institucionales globales salvo que exista explícitamente una fuente de presencia por ubicación.
+18. Entregar `updatedAt` para identificar vigencia de las métricas.
+19. No obligar a Display a consultar GS/histórico ni requests `COMPLETED` para calcular métricas.
+20. Documentar el contrato final para que Display elimine el polling permanente de configuración y cualquier cálculo local de métricas.
 
 ## 16. Criterio de aceptación
 
-La implementación se considera suficiente cuando una pantalla ya enrolada puede:
-
-- abrir y pintar inmediatamente desde su caché local;
-- realizar una sola consulta operativa periódica al Gateway;
-- recibir `configRevision` sin descargar la configuración completa;
-- detectar una modificación administrativa y adoptarla sin recargar la aplicación;
-- cambiar filtros localmente en modo touch autorizado y sincronizarlos con Gateway;
-- reconciliar las Pickup Requests por `requestId`;
-- recibir `inside`, `deliveredToday` y promedio `AT_GATE → COMPLETED` como valores autoritativos;
-- recibir métricas globales o filtradas por ubicación según corresponda;
-- no necesitar requests `COMPLETED` en Display para calcular el promedio;
-- continuar mostrando el último snapshot y últimas métricas durante una interrupción de red;
-- recuperar estado y métricas autoritativas al restablecer conexión;
-- nunca depender directamente de GS/histórico para la cola viva de Display.
+La implementación se considera suficiente cuando una pantalla ya enrolada puede abrir y pintar inmediatamente desde caché local, realizar una sola consulta periódica, detectar/adoptar cambios de configuración sin recarga, autoconfigurarse cuando esté autorizada, reconciliar requests por `requestId`, recibir **PRESENTES = alumnos aún dentro**, **ENTREGADOS = alumnos que salieron hoy** y el promedio `AT_GATE → COMPLETED` como valores autoritativos, continuar mostrando el último snapshot durante una interrupción y recuperar el estado real al restablecer conexión.
