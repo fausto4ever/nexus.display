@@ -24,7 +24,7 @@ const demoState = cfg => ({online:false,revision:0,updatedAt:new Date().toLocale
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 function hideSplash(){if(!splash||splash.classList.contains('hide'))return;requestAnimationFrame(()=>splash.classList.add('hide'));setTimeout(()=>splash.remove(),650);}
 function normalizeRemoteConfig(config){if(!config||typeof config!=='object')return{};return{...config,mode:config.view||config.mode};}
-function normalizeDisplayItems(items){if(!Array.isArray(items))return[];return items.map(item=>({...item,studentName:item.studentName||item.displayName||null}));}
+function normalizeDisplayItems(items){if(!Array.isArray(items))return[];return items.filter(item=>['WAITING','READY','AT_GATE'].includes(String(item?.status||'').toUpperCase())).map(item=>({requestId:item.requestId,studentName:item.displayName||item.studentName||null,status:item.status,locationId:item.locationId||null,priority:item.priority??null,distanceMeters:item.distanceMeters??null,requestedAt:item.requestedAt||null,updatedAt:item.updatedAt||null,arrivalTriggeredAt:item.arrivalTriggeredAt||null,arrivalMode:item.arrivalMode||null,levelName:item.levelName||null,gradeName:item.gradeName||null,groupName:item.groupName||null}));}
 function storedIdentity(){try{return{screenId:localStorage.getItem(SCREEN_ID_KEY)||'',screenToken:localStorage.getItem(SCREEN_TOKEN_KEY)||''};}catch{return{screenId:'',screenToken:''};}}
 function saveIdentity(screenId,screenToken){localStorage.setItem(SCREEN_ID_KEY,screenId);localStorage.setItem(SCREEN_TOKEN_KEY,screenToken);}
 function clearIdentity(){try{localStorage.removeItem(SCREEN_ID_KEY);localStorage.removeItem(SCREEN_TOKEN_KEY);}catch{}}
