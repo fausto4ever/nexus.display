@@ -112,6 +112,10 @@ export class GatewayClient {
     return this.putJson('/api/display/config', { screenId, ...config });
   }
 
+  queryDisplayState(body) {
+    return this.postJson('/api/display/state', body);
+  }
+
   getDisplayState(screenId) {
     return this.getJson(`/api/display/state?screenId=${encodeURIComponent(screenId)}`);
   }
