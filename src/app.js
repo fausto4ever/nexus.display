@@ -49,7 +49,7 @@ async function start(){
   const previewBypassEnrollment=isPreviewDeployment();
   let identity=storedIdentity();
   const client=new GatewayClient(localConfig.gatewayBaseUrl,identity.screenToken);
-  let effectiveConfig={...localConfig};let testModeOverride=null;let lastModel=localConfig.demo?demoState(effectiveConfig):{online:false,config:effectiveConfig,counters:{},pickupRequests:[]};let lastLaneMap=modelLaneMap(lastModel);
+  let effectiveConfig={...localConfig};let testModeOverride=null;let lastModel=localConfig.demo?demoState(effectiveConfig):{online:false,config:effectiveConfig,counters:{},pickupRequests:[]};let lastLaneMap=modelLaneMap(lastModel);let pickupRevision=null;let configRevision=null;let operationalRevision=null;
 
   // TEMPORARY PREVIEW TEST ONLY — REMOVE this block after preview validation.
   // Preview builds deliberately ignore any stored screen identity/token and consume the Gateway public display-state endpoint.
@@ -72,13 +72,17 @@ async function start(){
       lastModel={online:true,config:effectiveConfig,counters:state.counters||{},pickupRequests:normalizeDisplayItems(state.items||state.pickupRequests||[]),revision:state.revision??0,updatedAt:new Date().toLocaleTimeString()};
     }else{
       if(!effectiveConfig.screenId)throw new Error('Pantalla no vinculada');
-      const remoteConfig=await client.getDisplayConfig(effectiveConfig.screenId);effectiveConfig={...effectiveConfig,...normalizeRemoteConfig(remoteConfig.config||remoteConfig)};
-      const state=await client.getDisplayState(effectiveConfig.screenId);if(state.config)effectiveConfig={...effectiveConfig,...normalizeRemoteConfig(state.config)};
-      lastModel={online:true,config:effectiveConfig,counters:state.counters||{},pickupRequests:normalizeDisplayItems(state.items||state.pickupRequests||[]),revision:state.revision??0,updatedAt:new Date().toLocaleTimeString()};
+      const state=await client.queryDisplayState({screenId:effectiveConfig.screenId,...(pickupRevision===null?{}:{revision:pickupRevision}),...(configRevision===null?{}:{configRevision})});
+      if(state.config)effectiveConfig={...effectiveConfig,...normalizeRemoteConfig(state.config)};
+      const requests=Array.isArray(state.items)?normalizeDisplayItems(state.items):lastModel.pickupRequests;
+      pickupRevision=state.revision??pickupRevision;
+      configRevision=state.configRevision??configRevision;
+      operationalRevision=state.operationalRevision??operationalRevision;
+      lastModel={online:true,config:effectiveConfig,counters:state.counters||lastModel.counters,pickupRequests:requests,revision:pickupRevision,operationalRevision,configRevision,updatedAt:new Date().toLocaleTimeString()};
     }
   }catch(error){const code=error?.data?.error;
     // TEMPORARY PREVIEW TEST ONLY — previews must never fall back into enrollment while this test switch exists.
-    if(!previewBypassEnrollment&&['SCREEN_AUTH_REQUIRED','SCREEN_AUTH_INVALID','SCREEN_NOT_FOUND'].includes(code)){clearIdentity();identity=await enrollDisplay(client,localConfig);effectiveConfig.screenId=identity.screenId;return refresh();}
+    if(!previewBypassEnrollment&&['SCREEN_AUTH_REQUIRED','SCREEN_AUTH_INVALID','SCREEN_NOT_FOUND'].includes(code)){clearIdentity();identity=await enrollDisplay(client,localConfig);effectiveConfig.screenId=identity.screenId;pickupRevision=null;configRevision=null;operationalRevision=null;lastModel={...lastModel,pickupRequests:[],counters:{}};return refresh();}
     lastModel={...lastModel,online:false,config:effectiveConfig,updatedAt:new Date().toLocaleTimeString(),error:String(error?.message||error)};
   }paint(lastModel);}
   if(effectiveConfig.gatewayBaseUrl)await refresh();hideSplash();if(effectiveConfig.gatewayBaseUrl)setInterval(refresh,Math.max(1000,Number(effectiveConfig.pollIntervalMs)||5000));
