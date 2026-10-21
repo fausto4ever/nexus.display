@@ -12,3 +12,9 @@
 
 /build-info.json
   Cache-Control: no-store
+
+/src/*
+  Cache-Control: no-cache
+
+/manifest.webmanifest
+  Cache-Control: no-cache
