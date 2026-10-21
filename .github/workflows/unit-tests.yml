@@ -27,7 +27,7 @@ jobs:
         with:
           node-version: '22'
       - name: Instalar dependencias reproducibles
-        run: npm ci --ignore-scripts --no-audit --no-fund
+        run: npm install --no-package-lock --ignore-scripts --no-audit --no-fund
       - name: Verificar sintaxis
         run: |
           node --check src/app.js
