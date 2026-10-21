@@ -1,0 +1,30 @@
+name: Display - Pruebas unitarias
+
+on:
+  push:
+    branches: ['rebuild-display-0.1.36']
+    paths:
+      - 'tests/unit/**'
+      - 'src/**'
+      - 'package.json'
+      - '.github/workflows/unit-tests.yml'
+  pull_request:
+    branches: ['rebuild-display-0.1.36']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pruebas del modulo
+        run: npm run test:unit
