@@ -49,7 +49,7 @@ async function start(){
   const previewBypassEnrollment=isPreviewDeployment();
   let identity=storedIdentity();
   const client=new GatewayClient(localConfig.gatewayBaseUrl,identity.screenToken);
-  let effectiveConfig={...localConfig};let testModeOverride=null;let lastModel=localConfig.demo?demoState(effectiveConfig):{online:false,config:effectiveConfig,counters:{},pickupRequests:[]};let lastLaneMap=modelLaneMap(lastModel);let pickupRevision=null;let configRevision=null;let operationalRevision=null;
+  let effectiveConfig={...localConfig};let testModeOverride=null;let lastModel=localConfig.demo?demoState(effectiveConfig):{online:false,config:effectiveConfig,counters:{},pickupRequests:[]};let lastLaneMap=modelLaneMap(lastModel);let pickupRevision=null;let configRevision=null;let operationalRevision=null;let streamController=null;let streamGeneration=0;let streamActive=false;
 
   // TEMPORARY PREVIEW TEST ONLY — REMOVE this block after preview validation.
   // Preview builds deliberately ignore any stored screen identity/token and consume the Gateway public display-state endpoint.
@@ -63,6 +63,44 @@ async function start(){
   root.addEventListener('click',async event=>{const toggle=event.target.closest('[data-edge-menu-toggle]');if(toggle){root.querySelector('.edge-menu')?.classList.toggle('open');return;}const fullscreen=event.target.closest('[data-fullscreen-toggle]');if(fullscreen){await toggleFullscreen();root.querySelector('.edge-menu')?.classList.remove('open');return;}const button=event.target.closest('[data-display-mode]');if(!button)return;testModeOverride=button.dataset.displayMode;paint(lastModel);});
   paint(lastModel);
   setInterval(()=>refreshLiveTimers(root),1000);
+  function applyState(state) {
+    if(state.config)effectiveConfig={...effectiveConfig,...normalizeRemoteConfig(state.config)};
+    const requests=Array.isArray(state.items)?normalizeDisplayItems(state.items):lastModel.pickupRequests;
+    pickupRevision=state.revision??pickupRevision;
+    configRevision=state.configRevision??configRevision;
+    operationalRevision=state.operationalRevision??operationalRevision;
+    lastModel={online:true,config:effectiveConfig,counters:state.counters??lastModel.counters,pickupRequests:requests,revision:pickupRevision,operationalRevision,configRevision,updatedAt:new Date().toLocaleTimeString()};
+    paint(lastModel);
+  }
+  async function connectStream() {
+    if(previewBypassEnrollment||!effectiveConfig.screenId||streamController)return;
+    const generation=++streamGeneration;
+    const controller=new AbortController();
+    streamController=controller;
+    let retry=0;
+    while(!controller.signal.aborted&&generation===streamGeneration){
+      try {
+        streamActive=true;
+        await client.streamDisplayState(effectiveConfig.screenId,applyState,controller.signal);
+        retry=0;
+      } catch(error) {
+        if(controller.signal.aborted)break;
+        streamActive=false;
+        console.warn('Display SSE reconnecting',error);
+      }
+      if(controller.signal.aborted)break;
+      streamActive=false;
+      await sleep(Math.min(30000,2000*2**Math.min(retry++,4)));
+    }
+    streamActive=false;
+    if(streamController===controller)streamController=null;
+  }
+  function resetStream(){
+    streamGeneration++;
+    streamController?.abort();
+    streamController=null;
+    streamActive=false;
+  }
   async function refresh(){try{
     if(previewBypassEnrollment){
       // TEMPORARY PREVIEW TEST ONLY — REMOVE this public-state branch after visual preview testing.
@@ -73,18 +111,17 @@ async function start(){
     }else{
       if(!effectiveConfig.screenId)throw new Error('Pantalla no vinculada');
       const state=await client.queryDisplayState({screenId:effectiveConfig.screenId,...(pickupRevision===null?{}:{revision:pickupRevision}),...(configRevision===null?{}:{configRevision})});
-      if(state.config)effectiveConfig={...effectiveConfig,...normalizeRemoteConfig(state.config)};
-      const requests=Array.isArray(state.items)?normalizeDisplayItems(state.items):lastModel.pickupRequests;
-      pickupRevision=state.revision??pickupRevision;
-      configRevision=state.configRevision??configRevision;
-      operationalRevision=state.operationalRevision??operationalRevision;
-      lastModel={online:true,config:effectiveConfig,counters:state.counters||lastModel.counters,pickupRequests:requests,revision:pickupRevision,operationalRevision,configRevision,updatedAt:new Date().toLocaleTimeString()};
+      applyState(state);
     }
   }catch(error){const code=error?.data?.error;
     // TEMPORARY PREVIEW TEST ONLY — previews must never fall back into enrollment while this test switch exists.
-    if(!previewBypassEnrollment&&['SCREEN_AUTH_REQUIRED','SCREEN_AUTH_INVALID','SCREEN_NOT_FOUND'].includes(code)){clearIdentity();identity=await enrollDisplay(client,localConfig);effectiveConfig.screenId=identity.screenId;pickupRevision=null;configRevision=null;operationalRevision=null;lastModel={...lastModel,pickupRequests:[],counters:{}};return refresh();}
+    if(!previewBypassEnrollment&&['SCREEN_AUTH_REQUIRED','SCREEN_AUTH_INVALID','SCREEN_NOT_FOUND'].includes(code)){resetStream();clearIdentity();identity=await enrollDisplay(client,localConfig);effectiveConfig.screenId=identity.screenId;pickupRevision=null;configRevision=null;operationalRevision=null;lastModel={...lastModel,pickupRequests:[],counters:{}};return refresh();}
     lastModel={...lastModel,online:false,config:effectiveConfig,updatedAt:new Date().toLocaleTimeString(),error:String(error?.message||error)};
   }paint(lastModel);}
-  if(effectiveConfig.gatewayBaseUrl)await refresh();hideSplash();if(effectiveConfig.gatewayBaseUrl)setInterval(refresh,Math.max(1000,Number(effectiveConfig.pollIntervalMs)||5000));
+  if(effectiveConfig.gatewayBaseUrl)await refresh();hideSplash();
+  if(effectiveConfig.gatewayBaseUrl){
+    if(!previewBypassEnrollment)void connectStream();
+    setInterval(()=>{if(!streamActive)void refresh();},Math.max(1000,Number(effectiveConfig.pollIntervalMs)||5000));
+  }
 }
 start().catch(error=>{hideSplash();root.textContent=`No se pudo iniciar Nexus.Display: ${String(error?.message||error)}`;});
