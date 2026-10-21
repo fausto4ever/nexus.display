@@ -80,9 +80,12 @@ async function start(){
     let retry=0;
     while(!controller.signal.aborted&&generation===streamGeneration){
       try {
-        streamActive=true;
-        await client.streamDisplayState(effectiveConfig.screenId,applyState,controller.signal);
-        retry=0;
+        await client.streamDisplayState(effectiveConfig.screenId,state=>{
+          if(controller.signal.aborted||generation!==streamGeneration)return;
+          streamActive=true;
+          retry=0;
+          applyState(state);
+        },controller.signal);
       } catch(error) {
         if(controller.signal.aborted)break;
         streamActive=false;
@@ -115,7 +118,7 @@ async function start(){
     }
   }catch(error){const code=error?.data?.error;
     // TEMPORARY PREVIEW TEST ONLY — previews must never fall back into enrollment while this test switch exists.
-    if(!previewBypassEnrollment&&['SCREEN_AUTH_REQUIRED','SCREEN_AUTH_INVALID','SCREEN_NOT_FOUND'].includes(code)){resetStream();clearIdentity();identity=await enrollDisplay(client,localConfig);effectiveConfig.screenId=identity.screenId;pickupRevision=null;configRevision=null;operationalRevision=null;lastModel={...lastModel,pickupRequests:[],counters:{}};return refresh();}
+    if(!previewBypassEnrollment&&['SCREEN_AUTH_REQUIRED','SCREEN_AUTH_INVALID','SCREEN_NOT_FOUND'].includes(code)){resetStream();clearIdentity();identity=await enrollDisplay(client,localConfig);effectiveConfig.screenId=identity.screenId;pickupRevision=null;configRevision=null;operationalRevision=null;lastModel={...lastModel,pickupRequests:[],counters:{}};await refresh();void connectStream();return;}
     lastModel={...lastModel,online:false,config:effectiveConfig,updatedAt:new Date().toLocaleTimeString(),error:String(error?.message||error)};
   }paint(lastModel);}
   if(effectiveConfig.gatewayBaseUrl)await refresh();hideSplash();
