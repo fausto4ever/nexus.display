@@ -18,7 +18,7 @@ const RETRY_DELAYS = [2000, 5000, 10000, 30000, 60000];
 // Production nexus-display.shindarked.workers.dev keeps the normal screen enrollment/authentication flow.
 const PREVIEW_HOST_SUFFIX = '-nexus-display.shindarked.workers.dev';
 function isPreviewDeployment(){return window.location.hostname.toLowerCase().endsWith(PREVIEW_HOST_SUFFIX);}
-function previewStatePath(config={}){const params=new URLSearchParams();params.set('view',String(config.view||config.mode||'DELIVERIES'));for(const key of ['locationId','entityType','rows']){const value=config[key];if(value!==undefined&&value!==null&&value!=='')params.set(key,String(value));}return `/api/display/state?${params.toString()}`;}
+function previewStatePath(config={}){const params=new URLSearchParams();params.set('view',String(config.view||config.mode||'DELIVERIES'));for(const key of ['locationId','entityType','rows']){const value=config[key];if(value!==undefined&&value!==null&&value!=='')params.set(key,String(value));}return `/api/display/preview?${params.toString()}`;}
 
 const demoState = cfg => ({online:false,revision:0,updatedAt:new Date().toLocaleTimeString(),config:cfg,counters:{inside:428,entriesToday:437,exitsToday:9},pickupRequests:[{requestId:'DEMO-1',studentName:'Alumno en puerta',status:'AT_GATE',priority:1,distanceMeters:8,vehicle:{description:'Vehículo gris'}},{requestId:'DEMO-2',studentName:'Alumno en camino',status:'ON_THE_WAY',priority:3,distanceMeters:42,vehicle:{description:'SUV blanca'}}]});
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -66,7 +66,7 @@ async function start(){
   async function refresh(){try{
     if(previewBypassEnrollment){
       // TEMPORARY PREVIEW TEST ONLY — REMOVE this public-state branch after visual preview testing.
-      // No screenId or bearer token is sent here; Gateway /api/display/state supports an unauthenticated preview-style query.
+      // No screenId or bearer token is sent here; Gateway /api/display/preview is for laboratory use only.
       const state=await client.getJson(previewStatePath(effectiveConfig),{auth:false});
       if(state.config)effectiveConfig={...effectiveConfig,...normalizeRemoteConfig(state.config),screenId:''};
       lastModel={online:true,config:effectiveConfig,counters:state.counters||{},pickupRequests:normalizeDisplayItems(state.items||state.pickupRequests||[]),revision:state.revision??0,updatedAt:new Date().toLocaleTimeString()};
