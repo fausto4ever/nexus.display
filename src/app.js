@@ -49,7 +49,7 @@ async function start(){
   const previewBypassEnrollment=isPreviewDeployment();
   let identity=storedIdentity();
   const client=new GatewayClient(localConfig.gatewayBaseUrl,identity.screenToken);
-  let effectiveConfig={...localConfig};let testModeOverride=null;let lastModel=localConfig.demo?demoState(effectiveConfig):{online:false,config:effectiveConfig,counters:{},pickupRequests:[]};let lastLaneMap=modelLaneMap(lastModel);let pickupRevision=null;let configRevision=null;let operationalRevision=null;let streamController=null;let streamGeneration=0;let streamActive=false;
+  let effectiveConfig={...localConfig};let testModeOverride=null;let lastModel=localConfig.demo?demoState(effectiveConfig):{online:false,config:effectiveConfig,counters:{},pickupRequests:[]};let lastLaneMap=modelLaneMap(lastModel);let pickupRevision=null;let configRevision=null;let operationalRevision=null;let streamController=null;let streamGeneration=0;let streamActive=false;let stateEpoch=0;let identityRecovery=null;
 
   // TEMPORARY PREVIEW TEST ONLY — REMOVE this block after preview validation.
   // Preview builds deliberately ignore any stored screen identity/token and consume the Gateway public display-state endpoint.
@@ -64,6 +64,7 @@ async function start(){
   paint(lastModel);
   setInterval(()=>refreshLiveTimers(root),1000);
   function applyState(state) {
+    stateEpoch++;
     if(state.config)effectiveConfig={...effectiveConfig,...normalizeRemoteConfig(state.config)};
     const requests=Array.isArray(state.items)?normalizeDisplayItems(state.items):lastModel.pickupRequests;
     pickupRevision=state.revision??pickupRevision;
@@ -95,8 +96,7 @@ async function start(){
       streamActive=false;
       await sleep(Math.min(30000,2000*2**Math.min(retry++,4)));
     }
-    streamActive=false;
-    if(streamController===controller)streamController=null;
+    if(streamController===controller){streamActive=false;streamController=null;}
   }
   function resetStream(){
     streamGeneration++;
@@ -104,7 +104,7 @@ async function start(){
     streamController=null;
     streamActive=false;
   }
-  async function refresh(){try{
+  async function refresh(){const epoch=stateEpoch;const screenId=effectiveConfig.screenId;try{
     if(previewBypassEnrollment){
       // TEMPORARY PREVIEW TEST ONLY — REMOVE this public-state branch after visual preview testing.
       // No screenId or bearer token is sent here; Gateway /api/display/preview is for laboratory use only.
@@ -114,11 +114,18 @@ async function start(){
     }else{
       if(!effectiveConfig.screenId)throw new Error('Pantalla no vinculada');
       const state=await client.queryDisplayState({screenId:effectiveConfig.screenId,...(pickupRevision===null?{}:{revision:pickupRevision}),...(configRevision===null?{}:{configRevision})});
+      if(screenId!==effectiveConfig.screenId||epoch!==stateEpoch)return;
       applyState(state);
+      return;
     }
-  }catch(error){const code=error?.data?.error;
+  }catch(error){if(screenId!==effectiveConfig.screenId||epoch!==stateEpoch)return;const code=error?.data?.error;
     // TEMPORARY PREVIEW TEST ONLY — previews must never fall back into enrollment while this test switch exists.
-    if(!previewBypassEnrollment&&['SCREEN_AUTH_REQUIRED','SCREEN_AUTH_INVALID','SCREEN_NOT_FOUND'].includes(code)){resetStream();clearIdentity();identity=await enrollDisplay(client,localConfig);effectiveConfig.screenId=identity.screenId;pickupRevision=null;configRevision=null;operationalRevision=null;lastModel={...lastModel,pickupRequests:[],counters:{}};await refresh();void connectStream();return;}
+    if(!previewBypassEnrollment&&['SCREEN_AUTH_REQUIRED','SCREEN_AUTH_INVALID','SCREEN_NOT_FOUND'].includes(code)){
+      if(identityRecovery)return identityRecovery;
+      identityRecovery=(async()=>{resetStream();clearIdentity();client.setScreenToken('');effectiveConfig.screenId='';pickupRevision=null;configRevision=null;operationalRevision=null;lastModel={...lastModel,online:false,pickupRequests:[],counters:{}};paint(lastModel);identity=await enrollDisplay(client,localConfig);effectiveConfig.screenId=identity.screenId;await refresh();void connectStream();})();
+      try{await identityRecovery;}finally{identityRecovery=null;}
+      return;
+    }
     lastModel={...lastModel,online:false,config:effectiveConfig,updatedAt:new Date().toLocaleTimeString(),error:String(error?.message||error)};
   }paint(lastModel);}
   if(effectiveConfig.gatewayBaseUrl)await refresh();hideSplash();
