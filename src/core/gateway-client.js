@@ -122,6 +122,43 @@ export class GatewayClient {
     return this.getJson(`/api/display/preview${query.size ? `?${query}` : ''}`, { auth: false });
   }
 
+  async streamDisplayState(screenId, onState, signal) {
+    const headers = { Accept: 'text/event-stream' };
+    if (this.screenToken) headers.Authorization = `Bearer ${this.screenToken}`;
+    const response = await fetch(`${this.baseUrl}/api/displays/${encodeURIComponent(screenId)}/state`, {
+      method: 'GET', headers, signal, cache: 'no-store'
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      const error = new Error(data.error || `HTTP ${response.status}`);
+      error.code = data.error || `HTTP_${response.status}`;
+      throw error;
+    }
+    if (!response.body) throw new Error('SSE_STREAM_UNAVAILABLE');
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true }).replace(/\r/g, '');
+        let boundary;
+        while ((boundary = buffer.indexOf('\n\n')) !== -1) {
+          const frame = buffer.slice(0, boundary);
+          buffer = buffer.slice(boundary + 2);
+          const lines = frame.split('\n');
+          const event = lines.find(line => line.startsWith('event:'))?.slice(6).trim() || 'message';
+          if (event !== 'state') continue;
+          const payload = lines.filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n');
+          if (payload) onState(JSON.parse(payload));
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  }
+
   getDisplayState(screenId) {
     return this.getJson(`/api/displays/${encodeURIComponent(screenId)}/state`);
   }
