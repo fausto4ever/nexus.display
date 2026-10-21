@@ -26,5 +26,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Instalar dependencias reproducibles
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verificar sintaxis
+        run: |
+          node --check src/app.js
+          node --check src/core/gateway-client.js
       - name: Pruebas del modulo
         run: npm run test:unit
+      - name: Compilar version de produccion
+        run: npm run build
