@@ -41,8 +41,8 @@ test('SSE: recibe eventos state fragmentados, ignora heartbeat y usa Bearer',asy
   mockFetch(t,async(url,options)=>{
     request={url,options};
     const body=new ReadableStream({start(controller){
-      controller.enqueue(encoder.encode(': heartbeat\\n\\nevent: state\\ndata: {"revision":'));
-      controller.enqueue(encoder.encode('7,"items":[]}\\n\\n'));
+      controller.enqueue(encoder.encode(': heartbeat\n\nevent: state\ndata: {"revision":'));
+      controller.enqueue(encoder.encode('7,"items":[]}\n\n'));
       controller.close();
     }});
     return new Response(body,{headers:{'content-type':'text/event-stream'}});
