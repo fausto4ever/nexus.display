@@ -105,18 +105,24 @@ export class GatewayClient {
   }
 
   getDisplayConfig(screenId) {
-    return this.getJson(`/api/display/config?screenId=${encodeURIComponent(screenId)}`);
+    return this.getJson(`/api/displays/${encodeURIComponent(screenId)}/config`);
   }
 
   saveDisplayConfig(screenId, config) {
-    return this.putJson('/api/display/config', { screenId, ...config });
+    const { screenId: ignoredScreenId, displayId: ignoredDisplayId, ...editable } = config || {};
+    return this.postJson('/api/display/config/save', { ...editable, screenId });
   }
 
   queryDisplayState(body) {
     return this.postJson('/api/display/state', body);
   }
 
+  getDisplayPreview(params = {}) {
+    const query = new URLSearchParams(params);
+    return this.getJson(`/api/display/preview${query.size ? `?${query}` : ''}`, { auth: false });
+  }
+
   getDisplayState(screenId) {
-    return this.getJson(`/api/display/state?screenId=${encodeURIComponent(screenId)}`);
+    return this.getJson(`/api/displays/${encodeURIComponent(screenId)}/state`);
   }
 }
