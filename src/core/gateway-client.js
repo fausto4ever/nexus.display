@@ -151,7 +151,13 @@ export class GatewayClient {
           const event = lines.find(line => line.startsWith('event:'))?.slice(6).trim() || 'message';
           if (event !== 'state') continue;
           const payload = lines.filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n');
-          if (payload) onState(JSON.parse(payload));
+          if (payload) {
+            try { onState(JSON.parse(payload)); }
+            catch (error) {
+              if (!(error instanceof SyntaxError)) throw error;
+              console.warn('Display SSE: malformed state frame ignored');
+            }
+          }
         }
       }
     } finally {
