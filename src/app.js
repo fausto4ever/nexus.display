@@ -93,7 +93,7 @@ async function start(){
       resetStream(); // Gateway closes SSE after a successful SELF_SERVICE save.
       lastModel={...lastModel,config:effectiveConfig};
       await refresh();
-      void connectStream();
+      if(!identityRecovery&&effectiveConfig.screenId)void connectStream();
     }catch(error){
       if(output)output.textContent=String(error?.data?.error||error?.message||error);
       if(button)button.disabled=false;
