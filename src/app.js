@@ -125,7 +125,7 @@ async function start(){
   }catch(error){if(!stateGuard.isCurrent(snapshot,effectiveConfig.screenId))return;const code=error?.data?.error;
     // TEMPORARY PREVIEW TEST ONLY — previews must never fall back into enrollment while this test switch exists.
     if(!previewBypassEnrollment&&isScreenIdentityRejected(code)){
-      if(identityRecovery)return identityRecovery;
+      if(identityRecovery){console.warn('Display: nueva identidad rechazada durante reenrolamiento');return;}
       identityRecovery=recoverScreenIdentity({resetStream,clearIdentity,client,markUnlinked:()=>{effectiveConfig.screenId='';pickupRevision=null;configRevision=null;operationalRevision=null;lastModel={...lastModel,online:false,pickupRequests:[],counters:{}};paint(lastModel);},enroll:()=>enrollDisplay(client,localConfig),setIdentity:next=>{identity=next;effectiveConfig.screenId=next.screenId;},refresh,connectStream});
       try{await identityRecovery;}finally{identityRecovery=null;}
       return;
