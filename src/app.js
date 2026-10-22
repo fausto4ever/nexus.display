@@ -94,7 +94,13 @@ async function start(){
       } catch(error) {
         if(controller.signal.aborted)break;
         streamActive=false;
-        console.warn('Display SSE reconnecting',error);
+        if(isScreenIdentityRejected(error?.code||error?.data?.error)){
+          // SSE can be the first endpoint to notice a revoked token.
+          // Delegate identity recovery to the same authenticated polling path.
+          console.warn('Display SSE identity rejected; verifying via polling');
+          await refresh();
+          if(controller.signal.aborted||generation!==streamGeneration)break;
+        }else console.warn('Display SSE reconnecting',error);
       }
       if(controller.signal.aborted)break;
       streamActive=false;
