@@ -26,6 +26,7 @@ import { waitForReconnect } from './core/reconnect.js';
 import { createStateGuard } from './core/state-guard.js';
 import { isScreenIdentityRejected } from './core/screen-auth.js';
 import { recoverScreenIdentity } from './core/identity-recovery.js';
+import { createPollGate } from './core/poll-gate.js';
 function hideSplash(){if(!splash||splash.classList.contains('hide'))return;requestAnimationFrame(()=>splash.classList.add('hide'));setTimeout(()=>splash.remove(),650);}
 function normalizeRemoteConfig(config){if(!config||typeof config!=='object')return{};return{...config,mode:config.view||config.mode};}
 function normalizeDisplayItems(items){if(!Array.isArray(items))return[];const seen=new Set();return items.filter(item=>item&&['WAITING','READY','AT_GATE'].includes(String(item.status||'').toUpperCase())).map(item=>({requestId:String(item.requestId||item.pickupRequestId||item.id||''),studentName:item.studentName||item.displayName||null,status:String(item.status).toUpperCase(),locationId:item.locationId,levelId:item.levelId,gradeId:item.gradeId,groupId:item.groupId,levelName:item.levelName,gradeName:item.gradeName,groupName:item.groupName,priority:item.priority,distanceMeters:item.distanceMeters,requestedAt:item.requestedAt,updatedAt:item.updatedAt,arrivalTriggeredAt:item.arrivalTriggeredAt,arrivalMode:item.arrivalMode})).filter(item=>{if(!item.requestId||seen.has(item.requestId))return false;seen.add(item.requestId);return true;});}
@@ -53,7 +54,7 @@ async function start(){
   const previewBypassEnrollment=isPreviewDeployment();
   let identity=storedIdentity();
   const client=new GatewayClient(localConfig.gatewayBaseUrl,identity.screenToken);
-  let effectiveConfig={...localConfig};let testModeOverride=null;let lastModel=localConfig.demo?demoState(effectiveConfig):{online:false,config:effectiveConfig,counters:{},pickupRequests:[]};let lastLaneMap=modelLaneMap(lastModel);let pickupRevision=null;let configRevision=null;let operationalRevision=null;let streamController=null;let streamGeneration=0;let streamActive=false;const stateGuard=createStateGuard();let identityRecovery=null;let pollingInFlight=false;
+  let effectiveConfig={...localConfig};let testModeOverride=null;let lastModel=localConfig.demo?demoState(effectiveConfig):{online:false,config:effectiveConfig,counters:{},pickupRequests:[]};let lastLaneMap=modelLaneMap(lastModel);let pickupRevision=null;let configRevision=null;let operationalRevision=null;let streamController=null;let streamGeneration=0;let streamActive=false;const stateGuard=createStateGuard();let identityRecovery=null;const pollGate=createPollGate();
 
   // TEMPORARY PREVIEW TEST ONLY — REMOVE this block after preview validation.
   // Preview builds deliberately ignore any stored screen identity/token and consume the Gateway public display-state endpoint.
@@ -141,7 +142,7 @@ async function start(){
   if(effectiveConfig.gatewayBaseUrl)await refresh();hideSplash();
   if(effectiveConfig.gatewayBaseUrl){
     if(!previewBypassEnrollment)void connectStream();
-    setInterval(()=>{if(!streamActive&&!pollingInFlight&&!identityRecovery){pollingInFlight=true;void refresh().catch(error=>console.warn('Display polling failed',error)).finally(()=>{pollingInFlight=false;});}},Math.max(1000,Number(effectiveConfig.pollIntervalMs)||5000));
+    setInterval(()=>{if(!streamActive&&!identityRecovery)void pollGate.run(refresh).catch(error=>console.warn('Display polling failed',error));},Math.max(1000,Number(effectiveConfig.pollIntervalMs)||5000));
   }
 }
 start().catch(error=>{hideSplash();root.textContent=`No se pudo iniciar Nexus.Display: ${String(error?.message||error)}`;});
