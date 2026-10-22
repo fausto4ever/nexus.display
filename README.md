@@ -2,7 +2,7 @@
 
 Nexus.Display es un cliente web de visualización configurable. No pertenece a un solo dominio de negocio: recibe configuración y estado desde un Gateway y selecciona un renderizador según `app`.
 
-**Versión actual:** `0.1.8`
+**Versión del paquete:** `0.1.44` (consultar `package.json` y `src/version.js` para la versión publicada).
 
 ## Principios
 
@@ -20,12 +20,7 @@ Nexus.Display es un cliente web de visualización configurable. No pertenece a u
 
 ## Primer módulo: Control de Acceso
 
-El primer renderizador es `control-access`, con modos previstos:
-
-- `ENTRY`
-- `EXIT`
-- `DELIVERIES`
-- `MIXED`
+El primer renderizador es `control-access`. La única vista operativa implementada actualmente por Gateway es `DELIVERIES`. `ENTRY`, `EXIT` y `MIXED` son valores heredados del esquema, no vistas listas para uso.
 
 Para Control de Acceso, el contador oficial debe venir del Gateway. Las solicitudes de entrega se muestran como estado activo; Nexus.Display no debe consumir datos privados de Tutor que no sean necesarios para la visualización.
 
@@ -100,3 +95,9 @@ src/
 ## Estado actual
 
 Incluye enrolamiento seguro de pantalla, configuración remota, conexión al Gateway, polling, registro de renderizadores, modo demo, interfaz responsiva y pipeline de producción ofuscado. Nexus.Display mantiene separadas la lógica de aplicación en JavaScript y la presentación en CSS.
+
+## Configuración de pantalla (Gateway 0.26.0)
+
+La configuración remota prevalece sobre los valores locales. La pantalla enrolada puede editar ubicación, filas, distancia y prioridad desde el menú lateral **únicamente** si Gateway asigna `configurationMode: SELF_SERVICE`. El guardado usa `POST /api/display/config/save` con Bearer; la respuesta oficial se aplica tras comprobar que la identidad no cambió. Se reinicia SSE y se vuelve a consultar el estado. En modo `ADMIN_ONLY` o `LOCKED` no se muestra el formulario.
+
+La edición de filtros avanzados y los modos ENTRY/EXIT/MIXED **no están implementados** como autoconfiguración. El menú de laboratorio en hosts preview no permite guardar. Las pruebas unitarias no sustituyen la verificación de una pantalla real ni la autorización para cerrar la issue #2. Véase `docs/DISPLAY-GATEWAY-026-CONTRACT-AUDIT.md`.
