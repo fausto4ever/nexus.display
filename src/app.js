@@ -1,3 +1,4 @@
+import { saveAuthorizedScreenConfig } from './core/save-screen-config.js';
 import { canSelfConfigure, selfServicePatch } from './core/self-service-config.js';
 import { loadConfig } from './core/config.js';
 import { GatewayClient } from './core/gateway-client.js';
@@ -85,13 +86,13 @@ async function start(){
       });
       if(button)button.disabled=true;
       if(output)output.textContent='Guardando…';
-      const savingScreenId=effectiveConfig.screenId;
-      const saved=await client.saveDisplayConfig(savingScreenId,changes);
-      if(savingScreenId!==effectiveConfig.screenId)return;
-      const remote=saved.config||await client.getDisplayConfig(savingScreenId).then(result=>result.config||result);
-      if(savingScreenId!==effectiveConfig.screenId)return;
-      effectiveConfig={...effectiveConfig,...normalizeRemoteConfig(remote)};
-      appliedConfigRevision=remote.configRevision??saved.configRevision??null;
+      const saved=await saveAuthorizedScreenConfig({
+        client,screenId:effectiveConfig.screenId,config:effectiveConfig,changes,
+        currentScreenId:()=>effectiveConfig.screenId
+      });
+      if(saved.stale)return;
+      effectiveConfig={...effectiveConfig,...normalizeRemoteConfig(saved.config)};
+      appliedConfigRevision=saved.revision;
       pickupRevision=null;
       configRevision=null;
       resetStream(); // Gateway closes SSE after a successful SELF_SERVICE save.
