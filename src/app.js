@@ -1,3 +1,4 @@
+import { canSelfConfigure, selfServicePatch } from './core/self-service-config.js';
 import { loadConfig } from './core/config.js';
 import { GatewayClient } from './core/gateway-client.js';
 import { registerRenderer, getRenderer } from './core/renderer-registry.js';
@@ -66,6 +67,36 @@ async function start(){
 
   const paint=model=>{const before=cardSnapshot(),oldLanes=lastLaneMap,newLanes=modelLaneMap(model),config=testModeOverride?{...model.config,mode:testModeOverride}:model.config;animateRemovedCards(before,newLanes);getRenderer(config?.app||effectiveConfig.app)(root,{...model,config});requestAnimationFrame(()=>animatePaint(before,oldLanes,newLanes));lastLaneMap=newLanes;};
   root.addEventListener('click',async event=>{const toggle=event.target.closest('[data-edge-menu-toggle]');if(toggle){root.querySelector('.edge-menu')?.classList.toggle('open');return;}const fullscreen=event.target.closest('[data-fullscreen-toggle]');if(fullscreen){await toggleFullscreen();root.querySelector('.edge-menu')?.classList.remove('open');return;}const button=event.target.closest('[data-display-mode]');if(!button)return;testModeOverride=button.dataset.displayMode;paint(lastModel);});
+  root.addEventListener('submit',async event=>{
+    const form=event.target.closest?.('[data-display-self-service]');
+    if(!form)return;
+    event.preventDefault();
+    const output=form.querySelector('[data-config-result]');
+    const button=form.querySelector('[type=submit]');
+    if(button?.disabled)return;
+    try{
+      if(!canSelfConfigure(effectiveConfig))throw new Error('Configuración restringida por administrador');
+      const changes=selfServicePatch(effectiveConfig,{
+        locationId:form.elements.locationId.value.trim()||null,
+        rows:Number(form.elements.rows.value),
+        showDistance:form.elements.showDistance.checked,
+        showPriority:form.elements.showPriority.checked
+      });
+      if(button)button.disabled=true;
+      if(output)output.textContent='Guardando…';
+      const saved=await client.saveDisplayConfig(effectiveConfig.screenId,changes);
+      const remote=saved.config||await client.getDisplayConfig(effectiveConfig.screenId).then(result=>result.config||result);
+      effectiveConfig={...effectiveConfig,...normalizeRemoteConfig(remote)};
+      appliedConfigRevision=null;
+      pickupRevision=null;
+      configRevision=null;
+      lastModel={...lastModel,config:effectiveConfig};
+      await refresh();
+    }catch(error){
+      if(output)output.textContent=String(error?.data?.error||error?.message||error);
+      if(button)button.disabled=false;
+    }
+  });
   paint(lastModel);
   setInterval(()=>refreshLiveTimers(root),1000);
   function applyState(state) {
