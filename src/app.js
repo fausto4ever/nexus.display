@@ -22,6 +22,7 @@ function previewStatePath(config={}){const params=new URLSearchParams();params.s
 
 const demoState = cfg => ({online:false,revision:0,updatedAt:new Date().toLocaleTimeString(),config:cfg,counters:{inside:428,entriesToday:437,exitsToday:9},pickupRequests:[{requestId:'DEMO-1',studentName:'Alumno en puerta',status:'AT_GATE',priority:1,distanceMeters:8,vehicle:{description:'Vehículo gris'}},{requestId:'DEMO-2',studentName:'Alumno en camino',status:'ON_THE_WAY',priority:3,distanceMeters:42,vehicle:{description:'SUV blanca'}}]});
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+import { waitForReconnect } from './core/reconnect.js';
 function hideSplash(){if(!splash||splash.classList.contains('hide'))return;requestAnimationFrame(()=>splash.classList.add('hide'));setTimeout(()=>splash.remove(),650);}
 function normalizeRemoteConfig(config){if(!config||typeof config!=='object')return{};return{...config,mode:config.view||config.mode};}
 function normalizeDisplayItems(items){if(!Array.isArray(items))return[];const seen=new Set();return items.filter(item=>item&&['WAITING','READY','AT_GATE'].includes(String(item.status||'').toUpperCase())).map(item=>({requestId:String(item.requestId||item.pickupRequestId||item.id||''),studentName:item.studentName||item.displayName||null,status:String(item.status).toUpperCase(),locationId:item.locationId,levelId:item.levelId,gradeId:item.gradeId,groupId:item.groupId,levelName:item.levelName,gradeName:item.gradeName,groupName:item.groupName,priority:item.priority,distanceMeters:item.distanceMeters,requestedAt:item.requestedAt,updatedAt:item.updatedAt,arrivalTriggeredAt:item.arrivalTriggeredAt,arrivalMode:item.arrivalMode})).filter(item=>{if(!item.requestId||seen.has(item.requestId))return false;seen.add(item.requestId);return true;});}
@@ -94,7 +95,7 @@ async function start(){
       }
       if(controller.signal.aborted)break;
       streamActive=false;
-      await sleep(Math.min(30000,2000*2**Math.min(retry++,4)));
+      await waitForReconnect(Math.min(30000,2000*2**Math.min(retry++,4)),controller.signal);
     }
     if(streamController===controller){streamActive=false;streamController=null;}
   }
