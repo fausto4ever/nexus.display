@@ -23,6 +23,7 @@ function previewStatePath(config={}){const params=new URLSearchParams();params.s
 const demoState = cfg => ({online:false,revision:0,updatedAt:new Date().toLocaleTimeString(),config:cfg,counters:{inside:428,entriesToday:437,exitsToday:9},pickupRequests:[{requestId:'DEMO-1',studentName:'Alumno en puerta',status:'AT_GATE',priority:1,distanceMeters:8,vehicle:{description:'Vehículo gris'}},{requestId:'DEMO-2',studentName:'Alumno en camino',status:'ON_THE_WAY',priority:3,distanceMeters:42,vehicle:{description:'SUV blanca'}}]});
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 import { waitForReconnect } from './core/reconnect.js';
+import { createStateGuard } from './core/state-guard.js';
 function hideSplash(){if(!splash||splash.classList.contains('hide'))return;requestAnimationFrame(()=>splash.classList.add('hide'));setTimeout(()=>splash.remove(),650);}
 function normalizeRemoteConfig(config){if(!config||typeof config!=='object')return{};return{...config,mode:config.view||config.mode};}
 function normalizeDisplayItems(items){if(!Array.isArray(items))return[];const seen=new Set();return items.filter(item=>item&&['WAITING','READY','AT_GATE'].includes(String(item.status||'').toUpperCase())).map(item=>({requestId:String(item.requestId||item.pickupRequestId||item.id||''),studentName:item.studentName||item.displayName||null,status:String(item.status).toUpperCase(),locationId:item.locationId,levelId:item.levelId,gradeId:item.gradeId,groupId:item.groupId,levelName:item.levelName,gradeName:item.gradeName,groupName:item.groupName,priority:item.priority,distanceMeters:item.distanceMeters,requestedAt:item.requestedAt,updatedAt:item.updatedAt,arrivalTriggeredAt:item.arrivalTriggeredAt,arrivalMode:item.arrivalMode})).filter(item=>{if(!item.requestId||seen.has(item.requestId))return false;seen.add(item.requestId);return true;});}
@@ -50,7 +51,7 @@ async function start(){
   const previewBypassEnrollment=isPreviewDeployment();
   let identity=storedIdentity();
   const client=new GatewayClient(localConfig.gatewayBaseUrl,identity.screenToken);
-  let effectiveConfig={...localConfig};let testModeOverride=null;let lastModel=localConfig.demo?demoState(effectiveConfig):{online:false,config:effectiveConfig,counters:{},pickupRequests:[]};let lastLaneMap=modelLaneMap(lastModel);let pickupRevision=null;let configRevision=null;let operationalRevision=null;let streamController=null;let streamGeneration=0;let streamActive=false;let stateEpoch=0;let identityRecovery=null;
+  let effectiveConfig={...localConfig};let testModeOverride=null;let lastModel=localConfig.demo?demoState(effectiveConfig):{online:false,config:effectiveConfig,counters:{},pickupRequests:[]};let lastLaneMap=modelLaneMap(lastModel);let pickupRevision=null;let configRevision=null;let operationalRevision=null;let streamController=null;let streamGeneration=0;let streamActive=false;const stateGuard=createStateGuard();let identityRecovery=null;
 
   // TEMPORARY PREVIEW TEST ONLY — REMOVE this block after preview validation.
   // Preview builds deliberately ignore any stored screen identity/token and consume the Gateway public display-state endpoint.
@@ -65,7 +66,7 @@ async function start(){
   paint(lastModel);
   setInterval(()=>refreshLiveTimers(root),1000);
   function applyState(state) {
-    stateEpoch++;
+    stateGuard.advance();
     if(state.config)effectiveConfig={...effectiveConfig,...normalizeRemoteConfig(state.config)};
     const requests=Array.isArray(state.items)?normalizeDisplayItems(state.items):lastModel.pickupRequests;
     pickupRevision=state.revision??pickupRevision;
@@ -105,7 +106,7 @@ async function start(){
     streamController=null;
     streamActive=false;
   }
-  async function refresh(){const epoch=stateEpoch;const screenId=effectiveConfig.screenId;try{
+  async function refresh(){if(identityRecovery)return identityRecovery;const snapshot=stateGuard.capture(effectiveConfig.screenId);try{
     if(previewBypassEnrollment){
       // TEMPORARY PREVIEW TEST ONLY — REMOVE this public-state branch after visual preview testing.
       // No screenId or bearer token is sent here; Gateway /api/display/preview is for laboratory use only.
@@ -115,11 +116,11 @@ async function start(){
     }else{
       if(!effectiveConfig.screenId)throw new Error('Pantalla no vinculada');
       const state=await client.queryDisplayState({screenId:effectiveConfig.screenId,...(pickupRevision===null?{}:{revision:pickupRevision}),...(configRevision===null?{}:{configRevision})});
-      if(screenId!==effectiveConfig.screenId||epoch!==stateEpoch)return;
+      if(!stateGuard.isCurrent(snapshot,effectiveConfig.screenId))return;
       applyState(state);
       return;
     }
-  }catch(error){if(screenId!==effectiveConfig.screenId||epoch!==stateEpoch)return;const code=error?.data?.error;
+  }catch(error){if(!stateGuard.isCurrent(snapshot,effectiveConfig.screenId))return;const code=error?.data?.error;
     // TEMPORARY PREVIEW TEST ONLY — previews must never fall back into enrollment while this test switch exists.
     if(!previewBypassEnrollment&&['SCREEN_AUTH_REQUIRED','SCREEN_AUTH_INVALID','SCREEN_NOT_FOUND'].includes(code)){
       if(identityRecovery)return identityRecovery;
