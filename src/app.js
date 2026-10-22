@@ -54,7 +54,7 @@ async function start(){
   const previewBypassEnrollment=isPreviewDeployment();
   let identity=storedIdentity();
   const client=new GatewayClient(localConfig.gatewayBaseUrl,identity.screenToken);
-  let effectiveConfig={...localConfig};let testModeOverride=null;let lastModel=localConfig.demo?demoState(effectiveConfig):{online:false,config:effectiveConfig,counters:{},pickupRequests:[]};let lastLaneMap=modelLaneMap(lastModel);let pickupRevision=null;let configRevision=null;let operationalRevision=null;let streamController=null;let streamGeneration=0;let streamActive=false;const stateGuard=createStateGuard();let identityRecovery=null;const pollGate=createPollGate();let configSyncInFlight=false;
+  let effectiveConfig={...localConfig};let testModeOverride=null;let lastModel=localConfig.demo?demoState(effectiveConfig):{online:false,config:effectiveConfig,counters:{},pickupRequests:[]};let lastLaneMap=modelLaneMap(lastModel);let pickupRevision=null;let configRevision=null;let operationalRevision=null;let streamController=null;let streamGeneration=0;let streamActive=false;const stateGuard=createStateGuard();let identityRecovery=null;const pollGate=createPollGate();let configSyncInFlight=false;let appliedConfigRevision=null;
 
   // TEMPORARY PREVIEW TEST ONLY — REMOVE this block after preview validation.
   // Preview builds deliberately ignore any stored screen identity/token and consume the Gateway public display-state endpoint.
@@ -70,16 +70,15 @@ async function start(){
   setInterval(()=>refreshLiveTimers(root),1000);
   function applyState(state) {
     stateGuard.advance();
-    if(state.config)effectiveConfig={...effectiveConfig,...normalizeRemoteConfig(state.config)};
+    if(state.config){effectiveConfig={...effectiveConfig,...normalizeRemoteConfig(state.config)};if(state.configRevision!=null)appliedConfigRevision=state.configRevision;}
     const requests=Array.isArray(state.items)?normalizeDisplayItems(state.items):lastModel.pickupRequests;
     pickupRevision=state.revision??pickupRevision;
-    const previousConfigRevision=configRevision;
     configRevision=state.configRevision??configRevision;
     operationalRevision=state.operationalRevision??operationalRevision;
     lastModel={online:true,config:effectiveConfig,counters:state.counters??lastModel.counters,pickupRequests:requests,revision:pickupRevision,operationalRevision,configRevision,updatedAt:new Date().toLocaleTimeString()};
     paint(lastModel);
     // State may advertise a newer remote configuration without including its body.
-    if(!state.config&&state.configRevision!=null&&state.configRevision!==previousConfigRevision)void syncRemoteConfig();
+    if(!state.config&&state.configRevision!=null&&state.configRevision!==appliedConfigRevision)void syncRemoteConfig();
   }
   async function syncRemoteConfig(){
     if(configSyncInFlight||previewBypassEnrollment||!effectiveConfig.screenId||identityRecovery)return;
@@ -91,8 +90,9 @@ async function start(){
       const config=response.config||response;
       if(!config||typeof config!=='object'||Array.isArray(config))return;
       effectiveConfig={...effectiveConfig,...normalizeRemoteConfig(config)};
-      if(response.configRevision!=null)configRevision=response.configRevision;
-      else if(config.configRevision!=null)configRevision=config.configRevision;
+      if(response.configRevision!=null)appliedConfigRevision=response.configRevision;
+      else if(config.configRevision!=null)appliedConfigRevision=config.configRevision;
+      else appliedConfigRevision=configRevision;
       lastModel={...lastModel,config:effectiveConfig};
       paint(lastModel);
     }catch(error){console.warn('Display remote config sync failed',error);}
@@ -153,7 +153,7 @@ async function start(){
     // TEMPORARY PREVIEW TEST ONLY — previews must never fall back into enrollment while this test switch exists.
     if(!previewBypassEnrollment&&isScreenIdentityRejected(code)){
       if(identityRecovery){console.warn('Display: nueva identidad rechazada durante reenrolamiento');return;}
-      identityRecovery=recoverScreenIdentity({resetStream,clearIdentity,client,markUnlinked:()=>{effectiveConfig.screenId='';pickupRevision=null;configRevision=null;operationalRevision=null;lastModel={...lastModel,online:false,pickupRequests:[],counters:{}};paint(lastModel);},enroll:()=>enrollDisplay(client,localConfig),setIdentity:next=>{identity=next;effectiveConfig.screenId=next.screenId;},refresh,connectStream});
+      identityRecovery=recoverScreenIdentity({resetStream,clearIdentity,client,markUnlinked:()=>{effectiveConfig.screenId='';pickupRevision=null;configRevision=null;appliedConfigRevision=null;operationalRevision=null;lastModel={...lastModel,online:false,pickupRequests:[],counters:{}};paint(lastModel);},enroll:()=>enrollDisplay(client,localConfig),setIdentity:next=>{identity=next;effectiveConfig.screenId=next.screenId;},refresh,connectStream});
       try{await identityRecovery;}finally{identityRecovery=null;}
       return;
     }
