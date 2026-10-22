@@ -25,6 +25,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 import { waitForReconnect } from './core/reconnect.js';
 import { createStateGuard } from './core/state-guard.js';
 import { isScreenIdentityRejected } from './core/screen-auth.js';
+import { recoverScreenIdentity } from './core/identity-recovery.js';
 function hideSplash(){if(!splash||splash.classList.contains('hide'))return;requestAnimationFrame(()=>splash.classList.add('hide'));setTimeout(()=>splash.remove(),650);}
 function normalizeRemoteConfig(config){if(!config||typeof config!=='object')return{};return{...config,mode:config.view||config.mode};}
 function normalizeDisplayItems(items){if(!Array.isArray(items))return[];const seen=new Set();return items.filter(item=>item&&['WAITING','READY','AT_GATE'].includes(String(item.status||'').toUpperCase())).map(item=>({requestId:String(item.requestId||item.pickupRequestId||item.id||''),studentName:item.studentName||item.displayName||null,status:String(item.status).toUpperCase(),locationId:item.locationId,levelId:item.levelId,gradeId:item.gradeId,groupId:item.groupId,levelName:item.levelName,gradeName:item.gradeName,groupName:item.groupName,priority:item.priority,distanceMeters:item.distanceMeters,requestedAt:item.requestedAt,updatedAt:item.updatedAt,arrivalTriggeredAt:item.arrivalTriggeredAt,arrivalMode:item.arrivalMode})).filter(item=>{if(!item.requestId||seen.has(item.requestId))return false;seen.add(item.requestId);return true;});}
@@ -125,7 +126,7 @@ async function start(){
     // TEMPORARY PREVIEW TEST ONLY — previews must never fall back into enrollment while this test switch exists.
     if(!previewBypassEnrollment&&isScreenIdentityRejected(code)){
       if(identityRecovery)return identityRecovery;
-      identityRecovery=(async()=>{resetStream();clearIdentity();client.setScreenToken('');effectiveConfig.screenId='';pickupRevision=null;configRevision=null;operationalRevision=null;lastModel={...lastModel,online:false,pickupRequests:[],counters:{}};paint(lastModel);identity=await enrollDisplay(client,localConfig);effectiveConfig.screenId=identity.screenId;await refresh();void connectStream();})();
+      identityRecovery=recoverScreenIdentity({resetStream,clearIdentity,client,markUnlinked:()=>{effectiveConfig.screenId='';pickupRevision=null;configRevision=null;operationalRevision=null;lastModel={...lastModel,online:false,pickupRequests:[],counters:{}};paint(lastModel);},enroll:()=>enrollDisplay(client,localConfig),setIdentity:next=>{identity=next;effectiveConfig.screenId=next.screenId;},refresh,connectStream});
       try{await identityRecovery;}finally{identityRecovery=null;}
       return;
     }
