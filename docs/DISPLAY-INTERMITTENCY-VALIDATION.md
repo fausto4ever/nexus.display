@@ -43,3 +43,7 @@ Para cada caso registrar fecha, dispositivo/navegador, URL de entorno, SHAs, ini
 - Auditar caché/manifest/service worker de PWA y comportamiento tras nueva versión.
 - Completar pruebas del ciclo de vida real de `src/app.js` (reintentos, polling/SSE, identidad) con automatización cuando sea viable.
 - Verificar que el modo de preview temporal no afecte el host productivo y planear su retiro.
+
+## Estado de automatización (2026-10-22)
+
+Se añadieron pruebas unitarias de reconexión cancelable, arbitraje SSE/polling y orquestación de recuperación de identidad. **No sustituyen** una prueba E2E de navegador con Gateway real y autorización administrativa. La prueba de Wi-Fi físico, aprobación real de enrolamiento, comprobación de revisiones y autorización del cierre requieren intervención del validador y siguen pendientes. No se ha activado `?diagnostics=1` (solo está especificado).
