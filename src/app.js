@@ -106,7 +106,7 @@ async function start(){
     streamController=null;
     streamActive=false;
   }
-  async function refresh(){if(identityRecovery)return identityRecovery;const snapshot=stateGuard.capture(effectiveConfig.screenId);try{
+  async function refresh(){const snapshot=stateGuard.capture(effectiveConfig.screenId);try{
     if(previewBypassEnrollment){
       // TEMPORARY PREVIEW TEST ONLY — REMOVE this public-state branch after visual preview testing.
       // No screenId or bearer token is sent here; Gateway /api/display/preview is for laboratory use only.
