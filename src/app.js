@@ -75,6 +75,7 @@ async function start(){
     const button=form.querySelector('[type=submit]');
     if(button?.disabled)return;
     try{
+      if(previewBypassEnrollment||!effectiveConfig.screenId)throw new Error('La configuración requiere una pantalla vinculada');
       if(!canSelfConfigure(effectiveConfig))throw new Error('Configuración restringida por administrador');
       const changes=selfServicePatch(effectiveConfig,{
         locationId:form.elements.locationId.value.trim()||null,
@@ -84,10 +85,13 @@ async function start(){
       });
       if(button)button.disabled=true;
       if(output)output.textContent='Guardando…';
-      const saved=await client.saveDisplayConfig(effectiveConfig.screenId,changes);
-      const remote=saved.config||await client.getDisplayConfig(effectiveConfig.screenId).then(result=>result.config||result);
+      const savingScreenId=effectiveConfig.screenId;
+      const saved=await client.saveDisplayConfig(savingScreenId,changes);
+      if(savingScreenId!==effectiveConfig.screenId)return;
+      const remote=saved.config||await client.getDisplayConfig(savingScreenId).then(result=>result.config||result);
+      if(savingScreenId!==effectiveConfig.screenId)return;
       effectiveConfig={...effectiveConfig,...normalizeRemoteConfig(remote)};
-      appliedConfigRevision=null;
+      appliedConfigRevision=remote.configRevision??saved.configRevision??null;
       pickupRevision=null;
       configRevision=null;
       resetStream(); // Gateway closes SSE after a successful SELF_SERVICE save.
